@@ -7,6 +7,7 @@ const DRIVE_FOLDER_ID = "1Tg0JyEhEUWHCSCZVPjyzQiKaLDwdZj6h";
 const SHEET_INVOICES  = "חשבוניות";
 const SHEET_SUPPLIERS = "ספקים";
 const SHEET_QUOTES    = "הצעות_מחיר";
+const VERCEL_PROXY    = "https://hotelpay-tau.vercel.app/api/proxy";
 
 // ─── HTTP GET ────────────────────────────────────
 function doGet(e) {
@@ -236,27 +237,31 @@ function processInvoiceFile(file, apiKey) {
     createdAt:    new Date().toISOString()
   };
 
-  // נסה לסרוק עם Claude אם יש מפתח
-  if (apiKey && (isImage || isPdf)) {
+  // סריקה דרך Vercel proxy (שם מוגדר CLAUDE_API_KEY)
+  if (isImage || isPdf) {
     try {
-      const blob     = file.getBlob();
-      const b64      = Utilities.base64Encode(blob.getBytes());
-      const mt       = isPdf ? "application/pdf" : (mimeType === MimeType.PNG ? "image/png" : "image/jpeg");
-      const scanned  = scanWithClaude(b64, mt);
-
+      const b64 = Utilities.base64Encode(file.getBlob().getBytes());
+      const mt  = isPdf ? "application/pdf" : (mimeType === MimeType.PNG ? "image/png" : "image/jpeg");
+      const response = UrlFetchApp.fetch(VERCEL_PROXY, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        payload: JSON.stringify({ action: "scan", imageData: b64, mediaType: mt }),
+        muteHttpExceptions: true,
+      });
+      const scanned = JSON.parse(response.getContentText());
       if (!scanned.error) {
-        if (scanned.supplierName) invoice.supplierName = scanned.supplierName;
-        if (scanned.invoiceNumber) invoice.invoiceNo   = scanned.invoiceNumber;
-        if (scanned.totalWithVat)  invoice.amount      = Number(scanned.totalWithVat);
-        if (scanned.invoiceDate)   invoice.date        = scanned.invoiceDate.split("/").reverse().join("-");
-        if (scanned.items)         invoice.items       = JSON.stringify(scanned.items);
-        invoice.status = "review"; // דורש אישור אנושי לאחר סריקת AI
+        if (scanned.supplierName)  invoice.supplierName = scanned.supplierName;
+        if (scanned.invoiceNumber) invoice.invoiceNo    = scanned.invoiceNumber;
+        if (scanned.totalWithVat)  invoice.amount       = Number(scanned.totalWithVat);
+        if (scanned.invoiceDate)   invoice.date         = scanned.invoiceDate.split("/").reverse().join("-");
+        if (scanned.items)         invoice.items        = JSON.stringify(scanned.items);
+        invoice.status = "review";
         Logger.log("סריקת AI הצליחה: " + invoice.supplierName + " · ₪" + invoice.amount);
       } else {
         Logger.log("שגיאת AI: " + scanned.error);
       }
     } catch (e) {
-      Logger.log("שגיאה בסריקת Claude: " + e);
+      Logger.log("שגיאה בסריקה: " + e);
     }
   }
 

@@ -367,6 +367,11 @@ async function saveSupplier(sup) {
     D.suppliers.push(sup);
     await apiPost({ action:"add", sheet:"ספקים", data:sup });
   }
+  // קשר ספק לחשבונית שממנה נוצר
+  if (window._pendingSupInvId) {
+    await updateInvoice(window._pendingSupInvId, { supplierId: sup.id, supplierName: sup.name });
+    window._pendingSupInvId = null;
+  }
   render(); toast("✓ ספק נשמר");
 }
 async function saveQuote(quo) {
@@ -734,6 +739,41 @@ function closeModal() {
 }
 
 // ─── Invoice Detail Modal ───
+function supplierMatchHtml(inv) {
+  if (inv.supplierId) return "";
+  const name = (inv.supplierName || "").toLowerCase().trim();
+  if (!name) return "";
+  const match = D.suppliers.find(s => {
+    const sn = (s.name || "").toLowerCase().trim();
+    return sn === name || sn.includes(name) || name.includes(sn);
+  });
+  if (match) {
+    return `<div class="vat-box" style="background:var(--ok-l);border-color:var(--ok);color:#065f46;margin-bottom:12px">
+      🔍 נמצא ספק תואם: <strong>${match.name}</strong>&nbsp;
+      <button class="btn btn-sm btn-ok" onclick="linkSupplier('${inv.id}','${match.id}','${match.name}')">קשר ספק</button>
+    </div>`;
+  } else {
+    return `<div class="vat-box" style="background:var(--warn-l);border-color:var(--warn);color:#92400e;margin-bottom:12px">
+      ⚠️ ספק "<strong>${inv.supplierName}</strong>" לא קיים ברשימה&nbsp;
+      <button class="btn btn-sm btn-rev" onclick="createSupplierFromInvoice('${inv.id}')">➕ הוסף ספק חדש</button>
+    </div>`;
+  }
+}
+
+async function linkSupplier(invId, supId, supName) {
+  await updateInvoice(invId, { supplierId: supId, supplierName: supName });
+  closeModal();
+}
+
+function createSupplierFromInvoice(invId) {
+  const inv = D.invoices.find(x => String(x.id) === String(invId));
+  if (!inv) return;
+  window._pendingSupInvId = invId;
+  supForm = { name: inv.supplierName || "", cat: "אחר", phone: "", email: "", catalog: [] };
+  closeModal();
+  showModal(buildSupModal());
+}
+
 function openDetail(id) {
   const inv = D.invoices.find(x=>String(x.id)===String(id));
   if (!inv) return;
@@ -765,9 +805,18 @@ function openDetail(id) {
     : inv.status==="rejected"
     ? `<button class="btn btn-rev" onclick="updateInvoice('${id}',{status:'pending'});closeModal()">↩ החזר לממתין</button>` : "";
 
+  const driveThumb = inv.driveFileId
+    ? `<a href="${inv.driveFileUrl}" target="_blank" title="פתח בDrive">
+        <img src="https://drive.google.com/thumbnail?id=${inv.driveFileId}&sz=w120"
+          style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block;margin-bottom:4px"
+          onerror="this.style.display='none'">
+        <span style="font-size:10px;color:var(--blue)">📎 פתח בDrive</span>
+      </a>` : "";
+
   showModal(`<div class="modal" style="max-width:740px">
     <div class="m-hdr"><div class="m-ttl">${inv.supplierName}</div><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
     <div class="m-body">
+      ${supplierMatchHtml(inv)}
       ${alertsHtml?`<div style="margin-bottom:16px">${alertsHtml}</div>`:""}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
         <div>
@@ -776,6 +825,7 @@ function openDetail(id) {
           <div class="drow"><span class="dkey">תאריך</span><span class="dval">${inv.date}</span></div>
           <div class="drow"><span class="dkey">סטטוס</span><span class="dval">${badge(inv.status)}</span></div>
           ${quote?`<div class="drow"><span class="dkey">הצעת מחיר</span><span class="dval">${fmt(quote.amount)}</span></div>`:""}
+          ${inv.driveFileUrl?`<div class="drow"><span class="dkey">קובץ מקור</span><span class="dval">${driveThumb}</span></div>`:""}
         </div>
         <div style="background:var(--ink3);border:1px solid var(--border);border-radius:8px;padding:14px">
           <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;margin-bottom:8px">פירוט מע"מ</div>
