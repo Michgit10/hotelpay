@@ -305,14 +305,21 @@ function checkAnomalies(inv) {
 //  API
 // ════════════════════════════════════════════════
 async function apiGet(params) {
-  if (!API_URL) return useMockData();
+  if (!API_URL) return getDefaultData();
   const url = API_URL + "?" + Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join("&");
-  const res = await fetch(url);
+  const res = await fetch(url, { redirect: "follow" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 async function apiPost(body) {
   if (!API_URL) return { success: true };
-  const res = await fetch(API_URL, { method:"POST", body:JSON.stringify(body) });
+  const res = await fetch(API_URL, {
+    method: "POST",
+    redirect: "follow",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
@@ -326,7 +333,11 @@ async function loadAll() {
     D.invoices  = (result.invoices  || []).map(normalizeInvoice);
     D.suppliers = (result.suppliers || []).map(normalizeSupplier);
     D.quotes    = (result.quotes    || []).map(normalizeQuote);
-  } catch(e) { console.error(e); D = getDefaultData(); }
+  } catch(e) {
+    console.error("loadAll error:", e);
+    toast("⚠️ שגיאה בטעינת נתונים: " + e.message, 5000);
+    D = getDefaultData();
+  }
   UI.loading = false;
   render();
 }
