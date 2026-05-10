@@ -1012,7 +1012,7 @@ async function debugApi() {
     const inv = parsed?.invoices?.length ?? "שגיאה";
     const sup = parsed?.suppliers?.length ?? "שגיאה";
     const msg = parsed
-      ? `✅ תשובה תקינה\nחשבוניות: ${inv}\nספקים: ${sup}\n\n5 שורות ראשונות:\n${JSON.stringify(parsed.invoices?.slice(0,2), null, 2)}`
+      ? `✅ תשובה תקינה\nמפתחות: ${Object.keys(parsed).join(", ")}\nחשבוניות: ${inv}\nספקים: ${sup}\n\nתשובה גולמית:\n${JSON.stringify(parsed, null, 2).slice(0, 800)}`
       : `❌ תשובה לא תקינה:\n${text.slice(0, 500)}`;
     alert(msg);
   } catch(e) {
