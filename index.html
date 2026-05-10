@@ -282,6 +282,31 @@ function amtHtml(amount) {
 
 function checkAnomalies(inv) {
   const alerts = [];
+
+  // בדיקת כפילות — מספר חשבונית זהה
+  if (inv.invoiceNo) {
+    const dupNo = D.invoices.find(x =>
+      String(x.id) !== String(inv.id) &&
+      x.status !== "rejected" &&
+      String(x.invoiceNo) === String(inv.invoiceNo) &&
+      String(x.supplierId) === String(inv.supplierId)
+    );
+    if (dupNo) alerts.push({ type: "price", msg: `⚠️ תשלום כפול! מס׳ חשבונית ${inv.invoiceNo} כבר קיים לספק זה` });
+  }
+
+  // בדיקת כפילות — סכום זהה באותו חודש
+  if (Number(inv.amount) > 0 && inv.date) {
+    const month = inv.date.slice(0, 7);
+    const dupAmt = D.invoices.find(x =>
+      String(x.id) !== String(inv.id) &&
+      x.status !== "rejected" &&
+      String(x.supplierId) === String(inv.supplierId) &&
+      Number(x.amount) === Number(inv.amount) &&
+      (x.date || "").slice(0, 7) === month
+    );
+    if (dupAmt && !alerts.length) alerts.push({ type: "high", msg: `⚠️ ייתכן כפול — סכום זהה ${fmt(inv.amount)} כבר קיים לספק זה החודש` });
+  }
+
   const hist = D.invoices.filter(x => x.supplierId===inv.supplierId && String(x.id)!==String(inv.id) && x.status!=="rejected");
   if (hist.length >= 3) {
     const avg = hist.reduce((s,x)=>s+Number(x.amount),0) / hist.length;

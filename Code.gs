@@ -265,8 +265,49 @@ function processInvoiceFile(file, apiKey) {
     }
   }
 
+  // בדיקת כפילות לפני הוספה
+  const dup = findDuplicate(invoice);
+  if (dup) {
+    const existing = JSON.parse(invoice.alerts || "[]");
+    existing.unshift({ type: "price", msg: "⚠️ " + dup });
+    invoice.alerts = JSON.stringify(existing);
+    invoice.status = "review";
+    Logger.log("⚠️ כפילות זוהתה: " + dup);
+  }
+
   addRow(SHEET_INVOICES, invoice);
   Logger.log("חשבונית נוספה: " + invoice.supplierName);
+}
+
+// ─── DUPLICATE CHECK ─────────────────────────────
+function findDuplicate(invoice) {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_INVOICES);
+  if (!sheet || sheet.getLastRow() < 2) return null;
+
+  const data    = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const col     = k => headers.indexOf(k);
+
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    const sameSupplier = (r[col("supplierName")] || "").toLowerCase() === (invoice.supplierName || "").toLowerCase();
+    if (!sameSupplier) continue;
+
+    // אותו מספר חשבונית
+    if (invoice.invoiceNo && r[col("invoiceNo")] && String(r[col("invoiceNo")]) === String(invoice.invoiceNo)) {
+      return `מס׳ חשבונית ${invoice.invoiceNo} כבר קיים לספק ${invoice.supplierName} — ייתכן תשלום כפול!`;
+    }
+    // אותו סכום באותו חודש
+    if (invoice.amount > 0 && Number(r[col("amount")]) === Number(invoice.amount)) {
+      const existingMonth = String(r[col("date")] || "").slice(0, 7);
+      const newMonth      = String(invoice.date || "").slice(0, 7);
+      if (existingMonth && existingMonth === newMonth && r[col("status")] !== "rejected") {
+        return `סכום זהה ₪${invoice.amount} כבר קיים לספק ${invoice.supplierName} בחודש זה — לוודא שלא כפול!`;
+      }
+    }
+  }
+  return null;
 }
 
 // ─── SETUP TRIGGER ───────────────────────────────
