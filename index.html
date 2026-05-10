@@ -203,6 +203,7 @@ textarea.fi{resize:vertical;}
       <span id="vatLabel">כולל מע"מ</span>
       <div class="sw"><input type="checkbox" id="vatCb" checked onchange="toggleVat()"><span class="sw-t"></span></div>
     </label>
+    <button class="btn" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:11px;padding:4px 10px" onclick="loadAll()" id="refreshBtn">↻ רענן</button>
     <div class="hdr-date" id="hdrDate"></div>
   </div>
 </header>
@@ -871,7 +872,7 @@ function setExclVat(v){ const n=parseFloat(v)||0; invForm.exclVat=v; invForm.inc
 function updItem(i,k,v){ if(k==="qty"){invForm.items[i].qty=Number(v);invForm.items[i].total=Number(v)*invForm.items[i].unitPrice;}else{invForm.items[i].unitPrice=Number(v);invForm.items[i].total=invForm.items[i].qty*Number(v);}const t=invForm.items.reduce((s,x)=>s+x.total,0);invForm.inclVat=t||invForm.inclVat;invForm.exclVat=t?Math.round(t/1.18):"";document.getElementById("inclVatIn").value=invForm.inclVat;document.getElementById("exclVatIn").value=invForm.exclVat; }
 async function handleFile(file){ if(!file)return; const r=new FileReader(); r.onload=e=>{ imgData=e.target.result.split(",")[1]; imgPrev=e.target.result; refreshInvModal(); }; r.readAsDataURL(file); }
 function handleDrop(e){ e.preventDefault(); document.getElementById("uparea")?.classList.remove("drag"); handleFile(e.dataTransfer.files[0]); }
-async function scanInvoice(){ if(!imgData||!API_URL)return; const btn=document.getElementById("scanBtn"); const msg=document.getElementById("scanMsg"); btn.disabled=true; btn.textContent="⚙ סורק..."; msg.textContent=""; try{ const mt=imgPrev?.includes("png")?"image/png":"image/jpeg"; const r=await apiPost({action:"scan",imageData:imgData,mediaType:mt}); if(r.error){msg.textContent=r.error;return;} const ms=D.suppliers.find(s=>s.name.toLowerCase().includes((r.supplierName||"").toLowerCase().split(" ")[0])); if(ms)invForm.supplierId=ms.id; if(r.invoiceNumber)invForm.invoiceNo=r.invoiceNumber; if(r.invoiceDate)invForm.date=r.invoiceDate.split("/").reverse().join("-"); const iv=r.totalWithVat||Math.round((r.totalWithoutVat||0)*1.18)||0; const ev=r.totalWithoutVat||Math.round((r.totalWithVat||0)/1.18)||0; if(iv){invForm.inclVat=iv;invForm.exclVat=ev;} if(r.items?.length)invForm.items=r.items.map(it=>({name:it.name||"",qty:it.qty||1,unitPrice:it.unitPrice||0,total:it.total||0})); refreshInvModal(); }catch(e){msg.textContent="שגיאה בסריקה";}finally{btn&&(btn.disabled=false);btn&&(btn.textContent="🤖 סרוק עם AI");} }
+async function scanInvoice(){ if(!imgData||!API_URL)return; const btn=document.getElementById("scanBtn"); const msg=document.getElementById("scanMsg"); btn.disabled=true; btn.textContent="⚙ סורק..."; msg.textContent=""; try{ const mt=imgPrev?.includes("data:image/png")?"image/png":imgPrev?.includes("data:application/pdf")?"application/pdf":"image/jpeg"; const r=await apiPost({action:"scan",imageData:imgData,mediaType:mt}); if(r.error){msg.textContent="שגיאה: "+r.error;return;} const ms=D.suppliers.find(s=>s.name.toLowerCase().includes((r.supplierName||"").toLowerCase().split(" ")[0])); if(ms)invForm.supplierId=ms.id; if(r.invoiceNumber)invForm.invoiceNo=r.invoiceNumber; if(r.invoiceDate)invForm.date=r.invoiceDate.split("/").reverse().join("-"); const iv=r.totalWithVat||Math.round((r.totalWithoutVat||0)*1.18)||0; const ev=r.totalWithoutVat||Math.round((r.totalWithVat||0)/1.18)||0; if(iv){invForm.inclVat=iv;invForm.exclVat=ev;} if(r.items?.length)invForm.items=r.items.map(it=>({name:it.name||"",qty:it.qty||1,unitPrice:it.unitPrice||0,total:it.total||0})); msg.textContent="✓ סריקה הושלמה"; refreshInvModal(); }catch(e){msg.textContent="שגיאה בסריקה: "+e.message; console.error("scan error:",e);}finally{btn&&(btn.disabled=false);btn&&(btn.textContent="🤖 סרוק עם AI");} }
 function submitInvoice(){ if(!invForm.supplierId||!invForm.inclVat)return; const sup=D.suppliers.find(s=>String(s.id)===String(invForm.supplierId)); const inv={id:uid(),supplierId:invForm.supplierId,supplierName:sup?.name||"",invoiceNo:invForm.invoiceNo,amount:Number(invForm.inclVat),date:invForm.date,status:"pending",items:invForm.items.filter(it=>it.name),quoteId:invForm.quoteId||null,notes:invForm.notes,alerts:[],createdAt:new Date().toISOString()}; inv.alerts=checkAnomalies(inv); if(inv.alerts.length)inv.status="review"; saveInvoice(inv); closeModal(); }
 
 // ─── Supplier Modal ───
@@ -999,6 +1000,9 @@ function getDefaultData() {
 // ════════════════════════════════════════════════
 const hd = document.getElementById("hdrDate");
 if (hd) hd.textContent = `${["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"][NOW.getMonth()]} ${NOW.getFullYear()}`;
+
+// Auto-refresh every 30 seconds to pick up new Drive invoices
+setInterval(() => { if (!UI.loading) loadAll(); }, 30000);
 
 loadAll();
 </script>
