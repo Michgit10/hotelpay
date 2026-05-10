@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HotelPay · Renoma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+/* ─── CLEAN FUNCTIONAL THEME ─── */
+:root {
+  --bg:      #f3f4f6;
+  --card:    #ffffff;
+  --navy:    #1e3a5f;
+  --navy2:   #2d527a;
+  --blue:    #2563eb;
+  --blue-l:  #eff6ff;
+  --text:    #111827;
+  --muted:   #6b7280;
+  --border:  #e5e7eb;
+  --ok:      #059669;
+  --ok-l:    #ecfdf5;
+  --warn:    #d97706;
+  --warn-l:  #fffbeb;
+  --err:     #dc2626;
+  --err-l:   #fef2f2;
+  --pur:     #7c3aed;
+  --pur-l:   #f5f3ff;
+  --r:       8px;
+  --sh:      0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{font-family:'Heebo',sans-serif;direction:rtl;background:var(--bg);color:var(--text);font-size:14px;}
+::selection{background:var(--blue);color:#fff;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px;}
+
+/* ─── HEADER ─── */
+.hdr{background:var(--navy);height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.hdr-brand{display:flex;align-items:center;gap:12px;}
+.hdr-ico{width:32px;height:32px;background:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.hdr-ttl{color:#fff;font-size:15px;font-weight:800;}
+.hdr-sub{color:rgba(255,255,255,.5);font-size:10px;}
+.hdr-right{display:flex;align-items:center;gap:12px;}
+.vat-pill{display:flex;align-items:center;gap:8px;padding:4px 12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;cursor:pointer;user-select:none;}
+.vat-pill span{font-size:11px;font-weight:600;color:rgba(255,255,255,.85);}
+.sw{position:relative;width:34px;height:18px;}
+.sw input{opacity:0;width:0;height:0;position:absolute;}
+.sw-t{position:absolute;inset:0;background:rgba(255,255,255,.2);border-radius:18px;transition:.25s;}
+.sw-t::before{content:"";position:absolute;width:12px;height:12px;right:2px;top:2px;background:#fff;border-radius:50%;transition:.25s;opacity:.7;}
+.sw input:checked~.sw-t{background:#3b82f6;}
+.sw input:checked~.sw-t::before{transform:translateX(-16px);opacity:1;}
+.hdr-date{font-size:11px;color:rgba(255,255,255,.5);}
+
+/* ─── TABS ─── */
+.tabs{background:var(--navy);border-bottom:3px solid rgba(0,0,0,.1);padding:0 20px;display:flex;gap:2px;}
+.tab{padding:10px 16px;color:rgba(255,255,255,.5);font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+.tab:hover{color:rgba(255,255,255,.85);}
+.tab.on{color:#fff;border-bottom-color:#60a5fa;}
+
+/* ─── MAIN ─── */
+.main{padding:24px;max-width:1200px;margin:0 auto;}
+
+/* ─── CARD ─── */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--border);}.cp{padding:20px;}
+
+/* ─── LOADING ─── */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:12px;}
+.loading-ring{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:13px;color:var(--muted);}
+
+/* ─── STATS ─── */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;}
+.stat{background:var(--card);border-radius:var(--r);padding:16px;box-shadow:var(--sh);border:1px solid var(--border);border-top:3px solid var(--border);}
+.stat.bl{border-top-color:var(--blue);}
+.stat.or{border-top-color:var(--warn);}
+.stat.gr{border-top-color:var(--ok);}
+.stat.pu{border-top-color:var(--pur);}
+.stat.go{border-top-color:#f59e0b;}
+.stat-v{font-size:24px;font-weight:800;color:var(--text);line-height:1.1;}
+.stat-l{font-size:11px;color:var(--muted);margin-top:3px;font-weight:500;}
+.stat-n{font-size:11px;color:var(--muted);margin-top:6px;}
+
+/* ─── BADGE ─── */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+
+/* ─── ALERT ─── */
+.al{padding:5px 10px;border-radius:5px;font-size:11px;margin-top:3px;border-right:3px solid;}
+.al.high{background:var(--warn-l);color:#92400e;border-color:var(--warn);}
+.al.low{background:var(--ok-l);color:#065f46;border-color:var(--ok);}
+.al.quote{background:#fdf4ff;color:#6b21a8;border-color:#a855f7;}
+.al.price{background:var(--err-l);color:#991b1b;border-color:var(--err);}
+
+/* ─── TABLE ─── */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{text-align:right;padding:9px 14px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);background:#f9fafb;white-space:nowrap;letter-spacing:.03em;}
+.tbl td{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:top;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tbody tr:hover td{background:#f9fafb;cursor:pointer;}
+.tbl tbody tr.rev td{background:#fffbeb;}
+
+/* ─── BUTTON ─── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;border:none;transition:all .15s;font-family:inherit;white-space:nowrap;}
+.btn-navy{background:var(--navy);color:#fff;}.btn-navy:hover{background:var(--navy2);}
+.btn-blue{background:var(--blue);color:#fff;}.btn-blue:hover{opacity:.9;}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border);}.btn-ghost:hover{background:var(--bg);}
+.btn-sm{padding:4px 9px;font-size:11px;}
+.btn-ok{background:var(--ok-l);color:#065f46;border:1px solid #a7f3d0;}
+.btn-bad{background:var(--err-l);color:#991b1b;border:1px solid #fecaca;}
+.btn-pay{background:var(--pur-l);color:#5b21b6;border:1px solid #ddd6fe;}
+.btn-rev{background:var(--warn-l);color:#92400e;border:1px solid #fde68a;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ─── MODAL ─── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal{background:#fff;border-radius:12px;width:100%;max-width:720px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+.m-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;border-radius:12px 12px 0 0;}
+.m-ttl{font-size:15px;font-weight:800;color:var(--text);}
+.m-body{padding:20px;}
+.m-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;background:#f9fafb;border-radius:0 0 12px 12px;}
+
+/* ─── FORM ─── */
+.fg{margin-bottom:14px;}
+.fl{display:block;font-size:12px;font-weight:700;color:var(--text);margin-bottom:5px;}
+.fi{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:'Heebo',sans-serif;color:var(--text);outline:none;transition:border-color .15s;background:#fff;}
+.fi:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.vp{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.vp-l{font-size:10px;color:var(--muted);margin-top:3px;}
+.fi-net{background:#f9fafb;}
+textarea.fi{resize:vertical;}
+
+/* ─── UPLOAD ─── */
+.uparea{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;background:#fafafa;}
+.uparea:hover,.uparea.drag{border-color:var(--blue);background:var(--blue-l);}
+.up-icon{font-size:28px;margin-bottom:6px;opacity:.5;}
+.up-text{font-size:13px;color:var(--muted);font-weight:500;}
+.up-sub{font-size:11px;color:#9ca3af;margin-top:2px;}
+
+/* ─── SUPPLIER CARD ─── */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;cursor:pointer;transition:all .15s;}
+.scard:hover,.scard.sel{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.08);}
+.cat-tag{display:inline-block;padding:2px 8px;background:var(--blue-l);color:var(--blue);border-radius:20px;font-size:10px;font-weight:700;margin-bottom:6px;}
+.scard-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.scard-meta{font-size:11px;color:var(--muted);}
+
+/* ─── ITEMS TABLE ─── */
+.itbl{width:100%;border-collapse:collapse;margin-top:8px;}
+.itbl th{text-align:right;padding:6px 8px;font-size:10px;color:var(--muted);background:#f9fafb;border-bottom:1px solid var(--border);font-weight:700;}
+.itbl td{padding:5px 8px;font-size:12px;border-bottom:1px solid var(--border);}
+.itbl input{width:100%;background:transparent;border:1px solid transparent;border-radius:4px;padding:3px 5px;font-size:12px;font-family:'Heebo',sans-serif;color:var(--text);}
+.itbl input:focus{outline:none;border-color:var(--blue);background:#fff;}
+
+/* ─── CHART ─── */
+.chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:22px;box-shadow:var(--sh);}
+.chart-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.chart-ttl{font-size:14px;font-weight:700;color:var(--text);}
+.chart-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.chart-legend{display:flex;gap:14px;margin-top:10px;}
+.chart-legend span{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.chart-dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
+
+/* ─── FILTER ─── */
+.fc{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.fchip{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--muted);transition:all .15s;}
+.fchip:hover{color:var(--text);border-color:#9ca3af;}
+.fchip.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+/* ─── QUOTE CARD ─── */
+.qcard{background:var(--card);border:1px solid var(--border);border-right:3px solid var(--warn);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;box-shadow:var(--sh);}
+.qcard.matched{border-right-color:var(--ok);}
+.qcard.old{border-right-color:var(--muted);opacity:.65;}
+
+/* ─── MISC ─── */
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
+.drow{display:flex;gap:8px;margin-bottom:7px;}
+.dkey{font-size:11px;color:var(--muted);min-width:120px;padding-top:2px;font-weight:500;}
+.dval{font-size:13px;font-weight:600;color:var(--text);}
+.amt-blk{display:flex;flex-direction:column;gap:1px;}
+.amt-main{font-weight:700;font-size:14px;color:var(--text);}
+.amt-sub{font-size:10px;color:var(--muted);}
+.empty{text-align:center;padding:44px 24px;color:var(--muted);}
+.empty-ico{font-size:40px;margin-bottom:10px;opacity:.3;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;font-weight:600;z-index:500;box-shadow:var(--sh-md);opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+.vat-box{background:var(--blue-l);border:1px solid #bfdbfe;border-radius:7px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e40af;display:flex;align-items:flex-start;gap:8px;}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.sec-ttl{font-size:18px;font-weight:800;color:var(--text);}
+@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr);}.fgrid,.vp{grid-template-columns:1fr;}.main{padding:14px;}}
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ─────────────────────────────────── -->
+<header class="hdr">
+  <div class="hdr-brand">
+    <div class="hdr-brand"><div class="hdr-ico">🏨</div><div><div class="hdr-ttl">HotelPay</div><div class="hdr-sub">ניהול חשבוניות וספקים</div></div></div>
+  </div>
+  <div class="hdr-right">
+    <label class="vat-pill" id="vatPill" onclick="toggleVat()">
+      <span id="vatLabel">כולל מע"מ</span>
+      <div class="sw"><input type="checkbox" id="vatCb" checked onchange="toggleVat()"><span class="sw-t"></span></div>
+    </label>
+    <div class="hdr-date" id="hdrDate"></div>
+  </div>
+</header>
+
+<!-- ─── TABS ────────────────────────────────────── -->
+<nav class="tabs">
+  <div class="tab on" data-tab="dashboard" onclick="setTab('dashboard')">📊 דשבורד</div>
+  <div class="tab" data-tab="invoices" onclick="setTab('invoices')">📄 חשבוניות</div>
+  <div class="tab" data-tab="suppliers" onclick="setTab('suppliers')">🏢 ספקים</div>
+  <div class="tab" data-tab="quotes" onclick="setTab('quotes')">💬 הצעות מחיר</div>
+</nav>
+
+<!-- ─── MAIN ─────────────────────────────────────── -->
+<main class="main" id="main">
+  <div class="loading" id="loadingEl">
+    <div class="loading-ring"></div>
+    <div class="loading-text">RENOMA · HOTEL PAY</div>
+  </div>
+</main>
+
+<!-- ─── TOAST ────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ─── MODAL CONTAINER ──────────────────────────── -->
+<div id="modalContainer"></div>
+
+<script>
+// ════════════════════════════════════════════════
+//  CONFIG — הדבק כאן את ה-URL של Apps Script
+// ════════════════════════════════════════════════
+const API_URL = "https://script.google.com/macros/s/AKfycbzPjYuCxotJRFDM45kieO0rfIiRn4izV0BefzmQaGoblNpbhYUcMy6G_gZllRwaQT59Jw/exec";
+
+// ════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════
+const MO = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+const CATS = ["ארוחות ומזון","משקאות","ניקיון","כביסה","גינון","פרחים","אחזקה ומזגנים","חניה ומעליות","שיווק ופרסום","תוכנה וטכנולוגיה","משרדיות ודפוס","ריחות","שירותים","אחר"];
+const NOW = new Date();
+const VAT = 0.18;
+const STATUS = {
+  pending:  { l:"ממתין לאישור", c:"#4a7ab0", bg:"rgba(74,122,176,.15)",  e:"⏳" },
+  review:   { l:"דורש בדיקה",  c:"#c88c3a", bg:"rgba(200,140,58,.15)",  e:"🔍" },
+  approved: { l:"מאושר",        c:"#4a9e6a", bg:"rgba(74,158,106,.15)", e:"✅" },
+  rejected: { l:"נדחה",         c:"#b84040", bg:"rgba(184,64,64,.15)",  e:"❌" },
+  paid:     { l:"שולם",         c:"#7a5ab0", bg:"rgba(122,90,176,.15)", e:"💰" },
+};
+
+// ════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════
+let D = { invoices: [], suppliers: [], quotes: [] };
+let UI = { tab: "dashboard", withVat: true, loading: true, selSup: null };
+let chartInst = null;
+
+// ════════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════════
+const fmt = n => "₪" + Math.round(n||0).toLocaleString("he-IL");
+const noVat = n => Math.round(n / (1+VAT));
+const addVat = n => Math.round(n * (1+VAT));
+const disp = n => UI.withVat ? fmt(n) : fmt(noVat(n));
+const uid = () => "_" + Math.random().toString(36).slice(2, 10);
+const dStr = (y,m,d) => { const nm=((m%12)+12)%12; const ny=y+Math.floor(m/12); return `${ny}-${String(nm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; };
+const toast = (msg, dur=2500) => { const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), dur); };
+
+function badge(status) {
+  const s = STATUS[status] || STATUS.pending;
+  return `<span class="badge" style="background:${s.bg};color:${s.c};border-color:${s.c}30">${s.e} ${s.l}</span>`;
+}
+function amtHtml(amount) {
+  const main = disp(amount);
+  const sub = UI.withVat ? `${fmt(noVat(amount))} ללא מע"מ` : `${fmt(amount)} כולל מע"מ`;
+  return `<div class="amt-blk"><div class="amt-main">${main}</div><div class="amt-sub">${sub}</div></div>`;
+}
+
+function checkAnomalies(inv) {
+  const alerts = [];
+  const hist = D.invoices.filter(x => x.supplierId===inv.supplierId && String(x.id)!==String(inv.id) && x.status!=="rejected");
+  if (hist.length >= 3) {
+    const avg = hist.reduce((s,x)=>s+Number(x.amount),0) / hist.length;
+    const pct = ((Number(inv.amount)-avg)/avg)*100;
+    if (pct > 30) alerts.push({type:"high", msg:`גבוה ב-${Math.round(pct)}% מהממוצע (${fmt(Math.round(avg))})`});
+    if (pct < -40) alerts.push({type:"low", msg:`נמוך ב-${Math.round(Math.abs(pct))}% מהממוצע — לוודא שלא חסר`});
+  }
+  if (inv.quoteId) {
+    const q = D.quotes.find(x => String(x.id)===String(inv.quoteId));
+    if (q) { const diff=Number(inv.amount)-Number(q.amount); const pct=(diff/Number(q.amount))*100; if(pct>10) alerts.push({type:"quote",msg:`חריגה מהצעת מחיר: +${fmt(diff)} (${Math.round(pct)}%)`}); }
+  }
+  const sup = D.suppliers.find(s => String(s.id)===String(inv.supplierId));
+  if (sup && Array.isArray(sup.catalog)) {
+    (inv.items||[]).forEach(item => {
+      const cat = sup.catalog.find(c => (item.name||"").toLowerCase().includes((c.name||"").toLowerCase()) || (c.name||"").toLowerCase().includes((item.name||"").toLowerCase()));
+      if (cat && Number(item.unitPrice) > Number(cat.price)*1.15) alerts.push({type:"price", msg:`"${item.name}": ${fmt(item.unitPrice)} מעל המוסכם ${fmt(cat.price)}`});
+    });
+  }
+  return alerts;
+}
+
+// ════════════════════════════════════════════════
+//  API
+// ════════════════════════════════════════════════
+async function apiGet(params) {
+  if (!API_URL) return useMockData();
+  const url = API_URL + "?" + Object.entries(params).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join("&");
+  const res = await fetch(url);
+  return res.json();
+}
+async function apiPost(body) {
+  if (!API_URL) return { success: true };
+  const res = await fetch(API_URL, { method:"POST", body:JSON.stringify(body) });
+  return res.json();
+}
+
+async function loadAll() {
+  UI.loading = true;
+  renderLoading();
+  try {
+    if (!API_URL) { D = getDefaultData(); UI.loading = false; render(); return; }
+    const result = await apiGet({ action:"readAll" });
+    if (result.error) throw new Error(result.error);
+    D.invoices  = (result.invoices  || []).map(normalizeInvoice);
+    D.suppliers = (result.suppliers || []).map(normalizeSupplier);
+    D.quotes    = (result.quotes    || []).map(normalizeQuote);
+  } catch(e) { console.error(e); D = getDefaultData(); }
+  UI.loading = false;
+  render();
+}
+
+async function saveInvoice(inv) {
+  D.invoices.push(inv);
+  render();
+  const r = await apiPost({ action:"add", sheet:"חשבוניות", data:inv });
+  if (r.error) toast("שגיאה בשמירה: " + r.error);
+  else toast("✓ חשבונית נשמרה");
+}
+async function updateInvoice(id, updates) {
+  D.invoices = D.invoices.map(x => String(x.id)===String(id) ? {...x,...updates} : x);
+  render();
+  const r = await apiPost({ action:"update", sheet:"חשבוניות", id, updates });
+  if (r.error) toast("שגיאה בעדכון");
+  else toast("✓ עודכן");
+}
+async function saveSupplier(sup) {
+  if (sup.id && D.suppliers.find(s=>String(s.id)===String(sup.id))) {
+    D.suppliers = D.suppliers.map(s=>String(s.id)===String(sup.id)?sup:s);
+    await apiPost({ action:"update", sheet:"ספקים", id:sup.id, updates:sup });
+  } else {
+    sup.id = uid(); sup.createdAt = new Date().toISOString();
+    D.suppliers.push(sup);
+    await apiPost({ action:"add", sheet:"ספקים", data:sup });
+  }
+  render(); toast("✓ ספק נשמר");
+}
+async function saveQuote(quo) {
+  quo.id = uid(); quo.createdAt = new Date().toISOString();
+  D.quotes.push(quo);
+  render();
+  await apiPost({ action:"add", sheet:"הצעות_מחיר", data:quo });
+  toast("✓ הצעת מחיר נשמרה");
+}
+
+// ════════════════════════════════════════════════
+//  NORMALIZE (handles data from Sheets)
+// ════════════════════════════════════════════════
+function normalizeInvoice(x) {
+  if (typeof x.items === "string") try { x.items = JSON.parse(x.items); } catch { x.items = []; }
+  if (typeof x.alerts === "string") try { x.alerts = JSON.parse(x.alerts); } catch { x.alerts = []; }
+  x.amount = Number(x.amount) || 0;
+  x.items = x.items || [];
+  x.alerts = x.alerts || [];
+  return x;
+}
+function normalizeSupplier(x) {
+  if (typeof x.catalog === "string") try { x.catalog = JSON.parse(x.catalog); } catch { x.catalog = []; }
+  x.catalog = x.catalog || [];
+  return x;
+}
+function normalizeQuote(x) { x.amount = Number(x.amount) || 0; return x; }
+
+// ════════════════════════════════════════════════
+//  RENDER ENGINE
+// ════════════════════════════════════════════════
+function renderLoading() {
+  document.getElementById("main").innerHTML = `<div class="loading"><div class="loading-ring"></div><div class="loading-text">RENOMA · HOTEL PAY</div></div>`;
+}
+function render() {
+  if (UI.loading) { renderLoading(); return; }
+  const main = document.getElementById("main");
+  if (UI.tab === "dashboard") main.innerHTML = renderDashboard();
+  else if (UI.tab === "invoices") main.innerHTML = renderInvoices();
+  else if (UI.tab === "suppliers") main.innerHTML = renderSuppliers();
+  else if (UI.tab === "quotes") main.innerHTML = renderQuotes();
+  setTimeout(renderChart, 50);
+}
+
+// ─── DASHBOARD ───
+function renderDashboard() {
+  const cur = D.invoices.filter(x=>{ const d=new Date(x.date); return d.getMonth()===NOW.getMonth()&&d.getFullYear()===NOW.getFullYear(); });
+  const tot = cur.reduce((s,x)=>s+Number(x.amount),0);
+  const rev = cur.filter(x=>x.status==="review");
+  const appr = cur.filter(x=>["approved","paid"].includes(x.status)).reduce((s,x)=>s+Number(x.amount),0);
+  const paid = cur.filter(x=>x.status==="paid").reduce((s,x)=>s+Number(x.amount),0);
+  const vn = UI.withVat?'כולל מע"מ':'ללא מע"מ';
+  const sorted = [...cur].sort((a,b)=>{ const o={review:0,pending:1,approved:2,paid:3,rejected:4}; return(o[a.status]||0)-(o[b.status]||0); });
+
+  const rows = sorted.map(inv => {
+    const alertsHtml = (inv.alerts||[]).map(al=>`<div class="al ${al.type}">${al.msg}</div>`).join("");
+    const acts = inv.status==="pending"||inv.status==="review"
+      ? `<button class="btn btn-ok btn-sm" onclick="quickApprove('${inv.id}');event.stopPropagation()">✅ אשר</button>
+         <button class="btn btn-bad btn-sm" onclick="quickReject('${inv.id}');event.stopPropagation()">❌</button>`
+      : inv.status==="approved"
+      ? `<button class="btn btn-pay btn-sm" onclick="quickPay('${inv.id}');event.stopPropagation()">💰 שולם</button>` : "";
+    return `<tr class="${inv.status==="review"?"rev":""}" onclick="openDetail('${inv.id}')">
+      <td><div style="font-weight:700">${inv.supplierName}</div><div style="font-size:11px;color:var(--muted)">${inv.date}</div></td>
+      <td style="color:var(--muted);font-size:12px">${inv.invoiceNo||"—"}</td>
+      <td>${amtHtml(inv.amount)}</td>
+      <td>${badge(inv.status)}</td>
+      <td style="max-width:200px">${alertsHtml}</td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${acts}</div></td>
+    </tr>`;
+  }).join("");
+
+  const supOptions = D.suppliers.map(s=>`<option value="${s.id}"${UI.selSup===s.id?" selected":""}>${s.name}</option>`).join("");
+
+  return `
+  <div class="stats">
+    <div class="stat bl">
+      <div class="stat-l">חשבוניות החודש</div>
+      <div class="stat-v">${cur.length}</div>
+      <div class="stat-n">${disp(tot)} ${vn}</div>
+    </div>
+    <div class="stat or">
+      <div class="stat-l">דורשות בדיקה</div>
+      <div class="stat-v" style="color:${rev.length>0?"var(--warn)":"var(--cream)"}">${rev.length}</div>
+      <div class="stat-n">${cur.filter(x=>x.status==="pending").length} ממתינות</div>
+    </div>
+    <div class="stat gr">
+      <div class="stat-l">סכום מאושר</div>
+      <div class="stat-v"><small>₪</small>${Math.round(UI.withVat?appr:noVat(appr)).toLocaleString("he-IL")}</div>
+      <div class="stat-n">${cur.filter(x=>["approved","paid"].includes(x.status)).length} חשבוניות</div>
+    </div>
+    <div class="stat pu">
+      <div class="stat-l">שולם</div>
+      <div class="stat-v"><small>₪</small>${Math.round(UI.withVat?paid:noVat(paid)).toLocaleString("he-IL")}</div>
+      <div class="stat-n">${cur.filter(x=>x.status==="paid").length} חשבוניות</div>
+    </div>
+    <div class="stat go">
+      <div class="stat-l">יתרה לתשלום</div>
+      <div class="stat-v"><small>₪</small>${Math.round(UI.withVat?tot-paid:noVat(tot-paid)).toLocaleString("he-IL")}</div>
+      <div class="stat-n">${cur.filter(x=>!["paid","rejected"].includes(x.status)).length} פתוחות</div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-hdr">
+      <div>
+        <div class="chart-ttl">ניתוח היסטורי</div>
+        <div class="chart-sub">6 חודשים אחרונים + אשתקד · ${UI.withVat?'כולל מע"מ':'ללא מע"מ'}</div>
+      </div>
+      <select class="fi" style="width:auto;font-size:12px;padding:5px 10px" id="chartSupSel" onchange="UI.selSup=this.value;renderChart()">
+        <option value="">— בחר ספק —</option>
+        ${supOptions}
+      </select>
+    </div>
+    <canvas id="supChart" height="160"></canvas>
+    <div class="chart-legend">
+      <span><span class="chart-dot" style="background:#c8a870"></span>חודשים קודמים</span>
+      <span><span class="chart-dot" style="background:#f0e8d8"></span>חודש נוכחי</span>
+      <span><span class="chart-dot" style="background:#4a9e6a"></span>אשתקד</span>
+      <span><span class="chart-dot" style="background:rgba(200,168,112,.3);border:1px dashed #c8a870"></span>ממוצע</span>
+    </div>
+  </div>
+
+  <div class="sec-hdr">
+    <div class="sec-ttl">${MO[NOW.getMonth()]} ${NOW.getFullYear()}</div>
+    <button class="btn btn-gold" onclick="openInvModal()">+ חשבונית חדשה</button>
+  </div>
+  <div class="card">
+    ${cur.length===0
+      ? `<div class="empty"><div class="empty-ico">📄</div><div>אין חשבוניות החודש</div></div>`
+      : `<table class="tbl"><thead><tr><th>ספק</th><th>מס׳ חשבונית</th><th>סכום</th><th>סטטוס</th><th>התראות</th><th>פעולות</th></tr></thead><tbody>${rows}</tbody></table>`
+    }
+  </div>`;
+}
+
+// ─── INVOICES TAB ───
+function renderInvoices() {
+  const fs = UI.filterStatus || "all";
+  const fSup = UI.filterSup || "all";
+  const q = UI.search || "";
+  const fil = D.invoices.filter(x=>{
+    if(fs!=="all"&&x.status!==fs) return false;
+    if(fSup!=="all"&&String(x.supplierId)!==fSup) return false;
+    if(q&&!(x.supplierName||"").includes(q)&&!(x.invoiceNo||"").includes(q)) return false;
+    return true;
+  }).sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  const chips = ["all","pending","review","approved","paid","rejected"].map(s=>
+    `<span class="fchip${fs===s?" on":""}" onclick="UI.filterStatus='${s}';render()">${s==="all"?"הכל":STATUS[s]?.l}</span>`
+  ).join("");
+  const supOpts = D.suppliers.map(s=>`<option value="${s.id}"${fSup===s.id?" selected":""}>${s.name}</option>`).join("");
+  const rows = fil.map(inv=>{
+    const acts = inv.status==="approved"
+      ? `<button class="btn btn-pay btn-sm" onclick="quickPay('${inv.id}');event.stopPropagation()">💰</button>`
+      : (inv.status==="pending"||inv.status==="review")
+      ? `<button class="btn btn-ok btn-sm" onclick="quickApprove('${inv.id}');event.stopPropagation()">✅</button>` : "";
+    return `<tr onclick="openDetail('${inv.id}')">
+      <td style="font-weight:700">${inv.supplierName}</td>
+      <td style="color:var(--muted);font-size:12px">${inv.invoiceNo||"—"}</td>
+      <td style="font-size:12px;color:var(--muted)">${inv.date}</td>
+      <td>${amtHtml(inv.amount)}</td>
+      <td>${badge(inv.status)}</td>
+      <td>${(inv.alerts||[]).length>0?`<span style="font-size:11px;color:var(--warn);font-weight:700">⚠️ ${inv.alerts.length}</span>`:""}</td>
+      <td><div style="display:flex;gap:4px">${acts}</div></td>
+    </tr>`;
+  }).join("");
+
+  return `
+  <div class="sec-hdr">
+    <div class="sec-ttl">כל החשבוניות</div>
+    <button class="btn btn-gold" onclick="openInvModal()">+ חשבונית חדשה</button>
+  </div>
+  <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <input class="fi" style="width:200px;font-size:12px" placeholder="🔍 חיפוש..." value="${q}" oninput="UI.search=this.value;render()">
+    <div class="fc">${chips}</div>
+    <select class="fi" style="width:auto;font-size:12px;padding:5px 10px" onchange="UI.filterSup=this.value;render()">
+      <option value="all">כל הספקים</option>${supOpts}
+    </select>
+  </div>
+  <div class="card">
+    ${fil.length===0
+      ? `<div class="empty"><div class="empty-ico">🔍</div><div>לא נמצאו חשבוניות</div></div>`
+      : `<table class="tbl"><thead><tr><th>ספק</th><th>מס׳</th><th>תאריך</th><th>סכום</th><th>סטטוס</th><th>התראות</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    }
+  </div>`;
+}
+
+// ─── SUPPLIERS TAB ───
+function renderSuppliers() {
+  const sel = UI.selSupView;
+  const sup = D.suppliers.find(s=>String(s.id)===String(sel));
+  const cards = D.suppliers.map(s=>{
+    const hist = D.invoices.filter(x=>String(x.supplierId)===String(s.id)&&x.status!=="rejected");
+    const avg = hist.length ? hist.reduce((sum,x)=>sum+Number(x.amount),0)/hist.length : 0;
+    const last = [...hist].sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+    return `<div class="scard${String(sel)===String(s.id)?" sel":""}" onclick="UI.selSupView='${s.id}';UI.selSup='${s.id}';render()">
+      <span class="cat-tag">${s.cat}</span>
+      <div class="scard-name">${s.name}</div>
+      <div class="scard-meta">${s.catalog.length} שירותים בקטלוג${avg>0?` · ממוצע ${disp(Math.round(avg))}`:""}</div>
+      ${last?`<div class="scard-meta" style="margin-top:3px">אחרון: ${last.date}</div>`:""}
+    </div>`;
+  }).join("");
+
+  const detail = sup ? `
+  <div class="card cp" style="margin-top:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold)">${sup.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${sup.cat} ${sup.phone?`· ${sup.phone}`:""} ${sup.email?`· ${sup.email}`:""}</div>
+      </div>
+      <button class="btn btn-dark btn-sm" onclick="openSupModal('${sup.id}')">✏️ ערוך</button>
+    </div>
+    ${sup.catalog.length===0?`<div style="font-size:12px;color:var(--muted)">לא הוזנו מחירים מוסכמים</div>`:`
+    <table class="itbl" style="margin-top:0">
+      <thead><tr><th>שירות / מוצר</th><th>יחידת מידה</th><th>כולל מע"מ</th><th>ללא מע"מ</th></tr></thead>
+      <tbody>${sup.catalog.map(c=>`<tr><td style="font-weight:500">${c.name}</td><td style="color:var(--muted)">${c.unit}</td><td style="font-weight:700;color:var(--gold)">${fmt(c.price)}</td><td style="color:var(--muted)">${fmt(noVat(c.price))}</td></tr>`).join("")}</tbody>
+    </table>`}
+    <div style="margin-top:20px">
+      <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold);margin-bottom:8px">ניתוח היסטורי</div>
+      <canvas id="supChart" height="150"></canvas>
+      <div class="chart-legend" style="margin-top:8px">
+        <span><span class="chart-dot" style="background:#c8a870"></span>קודמים</span>
+        <span><span class="chart-dot" style="background:#f0e8d8"></span>נוכחי</span>
+        <span><span class="chart-dot" style="background:#4a9e6a"></span>אשתקד</span>
+      </div>
+    </div>
+  </div>` : "";
+
+  return `
+  <div class="sec-hdr">
+    <div class="sec-ttl">ספקים (${D.suppliers.length})</div>
+    <button class="btn btn-gold" onclick="openSupModal()">+ ספק חדש</button>
+  </div>
+  <div class="sgrid">${cards}</div>
+  ${detail}`;
+}
+
+// ─── QUOTES TAB ───
+function renderQuotes() {
+  const open = D.quotes.filter(q=>q.status==="open");
+  const closed = D.quotes.filter(q=>q.status!=="open");
+  const qCard = (q, cls="") => {
+    const matched = D.invoices.find(i=>String(i.quoteId)===String(q.id));
+    return `<div class="qcard ${cls}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div style="font-weight:700;font-size:14px">${q.supplierName}</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:2px">${q.desc}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:5px">${q.date}</div>
+        </div>
+        <div style="text-align:left">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold)">${disp(q.amount)}</div>
+          <div style="font-size:10px;color:var(--muted)">${UI.withVat?`${fmt(noVat(q.amount))} ללא מע"מ`:`${fmt(q.amount)} כולל מע"מ`}</div>
+          ${!matched?`<span class="badge" style="background:rgba(200,140,58,.15);color:#e0a060;border-color:#c8a87030;margin-top:5px">⏳ פתוחה</span>`:""}
+          ${matched?`<span class="badge" style="background:rgba(74,158,106,.15);color:#6ec890;border-color:#4a9e6a30;margin-top:5px">✅ קושרה</span>`:""}
+        </div>
+      </div>
+    </div>`;
+  };
+  return `
+  <div class="sec-hdr">
+    <div class="sec-ttl">הצעות מחיר</div>
+    <button class="btn btn-gold" onclick="openQuoteModal()">+ הצעת מחיר חדשה</button>
+  </div>
+  ${open.length===0&&closed.length===0?`<div class="empty"><div class="empty-ico">💬</div><div>אין הצעות מחיר</div></div>`:""}
+  ${open.length>0?`<div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">פתוחות</div>${open.map(q=>qCard(q)).join("")}`:""}
+  ${closed.length>0?`<div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin:16px 0 8px">היסטוריה</div>${closed.map(q=>qCard(q,"old")).join("")}`:""}`;
+}
+
+// ════════════════════════════════════════════════
+//  CHART (Chart.js)
+// ════════════════════════════════════════════════
+function renderChart() {
+  const canvas = document.getElementById("supChart");
+  if (!canvas) return;
+  const supId = UI.selSup || (UI.selSupView) || (D.suppliers[0]?.id);
+  if (!supId) return;
+
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+
+  const labels = [];
+  const amounts = [];
+  for (let i = 5; i >= 0; i--) {
+    const m = NOW.getMonth()-i;
+    const nm = ((m%12)+12)%12;
+    const ny = NOW.getFullYear()+Math.floor(m/12);
+    const tot = D.invoices.filter(x=>String(x.supplierId)===String(supId)&&x.status!=="rejected")
+      .filter(x=>{ const d=new Date(x.date); return d.getMonth()===nm&&d.getFullYear()===ny; })
+      .reduce((s,x)=>s+Number(x.amount),0);
+    labels.push(MO[nm].slice(0,3));
+    amounts.push(UI.withVat ? tot : noVat(tot));
+  }
+  const lyTot = D.invoices.filter(x=>String(x.supplierId)===String(supId)&&x.status!=="rejected")
+    .filter(x=>{ const d=new Date(x.date); return d.getMonth()===NOW.getMonth()&&d.getFullYear()===NOW.getFullYear()-1; })
+    .reduce((s,x)=>s+Number(x.amount),0);
+  labels.push(`${MO[NOW.getMonth()].slice(0,3)} '${String(NOW.getFullYear()-1).slice(2)}`);
+  amounts.push(UI.withVat ? lyTot : noVat(lyTot));
+
+  const valid = amounts.slice(0,6).filter(x=>x>0);
+  const avg = valid.length ? valid.reduce((s,x)=>s+x,0)/valid.length : 0;
+
+  const colors = [...amounts.slice(0,5).map(()=>"#c8a870"), "#f0e8d8", "#4a9e6a"];
+
+  chartInst = new Chart(canvas.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        data: amounts,
+        backgroundColor: colors,
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          rtl: true,
+          callbacks: {
+            label: ctx => " " + fmt(ctx.raw)
+          },
+          backgroundColor: "#1e1912",
+          titleColor: "#c8a870",
+          bodyColor: "#f0e8d8",
+          borderColor: "#2e2618",
+          borderWidth: 1,
+        },
+        annotation: avg > 0 ? {
+          annotations: {
+            avg: {
+              type: "line", yMin: avg, yMax: avg,
+              borderColor: "rgba(200,168,112,.4)",
+              borderWidth: 1, borderDash: [4,3],
+              label: { content:`ממוצע ${fmt(Math.round(avg))}`, display:true, position:"end", color:"#c8a870", font:{size:10} }
+            }
+          }
+        } : {}
+      },
+      scales: {
+        x: { ticks: { color:"#7a6e5e", font:{size:11,family:"Heebo"} }, grid:{display:false}, border:{color:"#2e2618"} },
+        y: { ticks: { color:"#7a6e5e", font:{size:11,family:"Heebo"}, callback: v => v ? "₪"+Math.round(v/1000)+"K" : "" }, grid:{color:"rgba(46,38,24,.8)"}, border:{color:"#2e2618"} }
+      }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════
+//  QUICK ACTIONS
+// ════════════════════════════════════════════════
+function quickApprove(id) { updateInvoice(id, {status:"approved"}); }
+function quickReject(id)  { updateInvoice(id, {status:"rejected"}); }
+function quickPay(id)     { updateInvoice(id, {status:"paid"}); }
+
+// ════════════════════════════════════════════════
+//  MODALS
+// ════════════════════════════════════════════════
+function showModal(html) {
+  const c = document.getElementById("modalContainer");
+  c.innerHTML = `<div class="ov" id="ovEl" onclick="if(event.target===this)closeModal()">${html}</div>`;
+}
+function closeModal() {
+  document.getElementById("modalContainer").innerHTML = "";
+}
+
+// ─── Invoice Detail Modal ───
+function openDetail(id) {
+  const inv = D.invoices.find(x=>String(x.id)===String(id));
+  if (!inv) return;
+  const sup = D.suppliers.find(s=>String(s.id)===String(inv.supplierId));
+  const quote = inv.quoteId ? D.quotes.find(q=>String(q.id)===String(inv.quoteId)) : null;
+  const vatAmt = Number(inv.amount) - noVat(Number(inv.amount));
+  const alertsHtml = (inv.alerts||[]).map(al=>`<div class="al ${al.type}">${al.msg}</div>`).join("");
+  const itemsHtml = (inv.items||[]).length > 0 ? `
+    <table class="itbl">
+      <thead><tr><th>שם</th><th>כמות</th><th>מחיר יח׳ (כולל מע"מ)</th><th>ללא מע"מ</th><th>סה"כ</th><th>מוסכם</th></tr></thead>
+      <tbody>${(inv.items).map(it=>{
+        const cat = sup?.catalog?.find(c=>(it.name||"").toLowerCase().includes((c.name||"").toLowerCase())||(c.name||"").toLowerCase().includes((it.name||"").toLowerCase()));
+        const over = cat && Number(it.unitPrice) > Number(cat.price)*1.15;
+        return `<tr><td>${it.name}</td><td>${it.qty}</td>
+          <td style="color:${over?"var(--err)":"inherit"};font-weight:${over?700:"normal"}">${fmt(it.unitPrice)}</td>
+          <td style="color:var(--muted)">${fmt(noVat(it.unitPrice))}</td>
+          <td style="font-weight:700">${fmt(it.total)}</td>
+          <td style="color:var(--muted)">${cat?fmt(cat.price):"—"}</td></tr>`;
+      }).join("")}
+      <tr><td colspan="4" style="font-weight:700;text-align:left;color:var(--muted)">סה"כ</td><td style="font-weight:800;font-size:15px;color:var(--gold)">${fmt(inv.amount)}</td><td style="font-size:10px;color:var(--muted)">${fmt(noVat(inv.amount))} ללא מע"מ</td></tr>
+      </tbody>
+    </table>` : "";
+
+  const btns = (inv.status==="pending"||inv.status==="review")
+    ? `<button class="btn btn-ok" onclick="updateInvoice('${id}',{status:'approved'});closeModal()">✅ אשר תשלום</button>
+       <button class="btn btn-bad" onclick="updateInvoice('${id}',{status:'rejected'});closeModal()">❌ דחה</button>`
+    : inv.status==="approved"
+    ? `<button class="btn btn-pay" onclick="updateInvoice('${id}',{status:'paid'});closeModal()">💰 סמן כשולם</button>`
+    : inv.status==="rejected"
+    ? `<button class="btn btn-rev" onclick="updateInvoice('${id}',{status:'pending'});closeModal()">↩ החזר לממתין</button>` : "";
+
+  showModal(`<div class="modal" style="max-width:740px">
+    <div class="m-hdr"><div class="m-ttl">${inv.supplierName}</div><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      ${alertsHtml?`<div style="margin-bottom:16px">${alertsHtml}</div>`:""}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+        <div>
+          <div class="drow"><span class="dkey">ספק</span><span class="dval">${inv.supplierName}</span></div>
+          <div class="drow"><span class="dkey">מס׳ חשבונית</span><span class="dval">${inv.invoiceNo||"—"}</span></div>
+          <div class="drow"><span class="dkey">תאריך</span><span class="dval">${inv.date}</span></div>
+          <div class="drow"><span class="dkey">סטטוס</span><span class="dval">${badge(inv.status)}</span></div>
+          ${quote?`<div class="drow"><span class="dkey">הצעת מחיר</span><span class="dval">${fmt(quote.amount)}</span></div>`:""}
+        </div>
+        <div style="background:var(--ink3);border:1px solid var(--border);border-radius:8px;padding:14px">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;margin-bottom:8px">פירוט מע"מ</div>
+          <div class="drow"><span class="dkey">ללא מע"מ</span><span class="dval">${fmt(noVat(inv.amount))}</span></div>
+          <div class="drow"><span class="dkey">מע"מ (18%)</span><span class="dval" style="color:var(--muted)">${fmt(vatAmt)}</span></div>
+          <hr class="divider">
+          <div class="drow"><span class="dkey" style="font-weight:700;color:var(--cream)">כולל מע"מ</span><span class="dval" style="font-family:'Cormorant Garamond';font-size:22px;color:var(--gold)">${fmt(inv.amount)}</span></div>
+        </div>
+      </div>
+      ${itemsHtml}
+      <div class="fg" style="margin-top:18px">
+        <label class="fl">הערות</label>
+        <textarea class="fi" id="detailNotes" rows="2" placeholder="הוסף הערה...">${inv.notes||""}</textarea>
+      </div>
+    </div>
+    <div class="m-foot">
+      ${btns}
+      <button class="btn btn-dark" onclick="saveDetailNotes('${id}')">💾 שמור הערות</button>
+      <button class="btn btn-ghost" style="margin-right:auto" onclick="closeModal()">סגור</button>
+    </div>
+  </div>`);
+}
+function saveDetailNotes(id) {
+  const notes = document.getElementById("detailNotes")?.value || "";
+  updateInvoice(id, {notes});
+  closeModal();
+}
+
+// ─── Invoice Upload Modal ───
+let invForm = {};
+let imgData = null; let imgPrev = null;
+
+function openInvModal() {
+  invForm = { supplierId:"", invoiceNo:"", inclVat:"", exclVat:"", date:dStr(NOW.getFullYear(),NOW.getMonth(),NOW.getDate()), quoteId:"", notes:"", items:[{name:"",qty:1,unitPrice:0,total:0}] };
+  imgData = null; imgPrev = null;
+  showModal(buildInvModal());
+}
+function buildInvModal() {
+  const supOpts = D.suppliers.map(s=>`<option value="${s.id}"${invForm.supplierId===s.id?" selected":""}>${s.name}</option>`).join("");
+  const openQ = D.quotes.filter(q=>q.supplierId===invForm.supplierId&&q.status==="open");
+  const qOpts = openQ.length ? `<div class="fg"><label class="fl">קשר להצעת מחיר</label><select class="fi" onchange="invForm.quoteId=this.value"><option value="">— ללא —</option>${openQ.map(q=>`<option value="${q.id}">${q.desc} — ${fmt(q.amount)}</option>`).join("")}</select></div>` : "";
+  const itemRows = invForm.items.map((it,i)=>`<tr>
+    <td><input value="${it.name}" onchange="invForm.items[${i}].name=this.value" placeholder="שם"></td>
+    <td><input type="number" value="${it.qty}" style="width:50px" onchange="updItem(${i},'qty',this.value)"></td>
+    <td><input type="number" value="${it.unitPrice}" style="width:80px" onchange="updItem(${i},'up',this.value)"></td>
+    <td style="color:var(--muted);font-size:11px">${it.unitPrice?fmt(noVat(it.unitPrice)):"—"}</td>
+    <td style="font-weight:700;color:var(--gold)">${fmt(it.total)}</td>
+    <td><span onclick="invForm.items.splice(${i},1);refreshInvModal()" style="cursor:pointer;color:var(--err);font-size:13px">✕</span></td>
+  </tr>`).join("");
+  const previewHtml = imgPrev ? `<div style="display:flex;align-items:center;gap:12px;justify-content:center"><img src="${imgPrev}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><div><div style="font-weight:700;font-size:13px">קובץ הועלה ✓</div><div style="font-size:11px;color:var(--muted)">לחץ להחלפה</div></div></div>` : `<div class="up-icon">📄</div><div class="up-text">גרור קובץ לכאן או לחץ להעלאה</div><div class="up-sub">PDF, JPG, PNG</div>`;
+
+  if (!API_URL) {
+    // Standalone mode — no AI scanning without API URL
+  }
+
+  return `<div class="modal">
+    <div class="m-hdr"><div class="m-ttl">חשבונית חדשה</div><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      ${!API_URL?`<div class="vat-box">⚠️ מצב דמו — להפעלת סריקת AI הגדר API_URL בקובץ</div>`:""}
+      <div class="uparea" id="uparea" onclick="document.getElementById('fileIn').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">${previewHtml}</div>
+      <input type="file" id="fileIn" accept="image/*,.pdf" style="display:none" onchange="handleFile(this.files[0])">
+      ${imgData&&API_URL?`<div style="margin:12px 0;display:flex;align-items:center;gap:10px"><button class="btn btn-dark" id="scanBtn" onclick="scanInvoice()">🤖 סרוק עם AI</button><span id="scanMsg" style="font-size:12px;color:var(--muted)"></span></div>`:""}
+      <div class="fgrid">
+        <div class="fg"><label class="fl">ספק *</label><select class="fi" onchange="invForm.supplierId=this.value;refreshInvModal()"><option value="">בחר ספק...</option>${supOpts}</select></div>
+        <div class="fg"><label class="fl">מס׳ חשבונית</label><input class="fi" value="${invForm.invoiceNo}" onchange="invForm.invoiceNo=this.value" placeholder="INV-001"></div>
+      </div>
+      <div class="fg"><label class="fl">סכום *</label>
+        <div class="vp">
+          <div><input class="fi" type="number" value="${invForm.inclVat}" id="inclVatIn" oninput="setInclVat(this.value)" placeholder="0"><div class="vp-l">כולל מע"מ 18% — הסכום בחשבונית</div></div>
+          <div><input class="fi fi-net" type="number" value="${invForm.exclVat}" id="exclVatIn" oninput="setExclVat(this.value)" placeholder="0"><div class="vp-l">ללא מע"מ — מחושב אוטומטי</div></div>
+        </div>
+        ${invForm.inclVat&&invForm.exclVat?`<div style="font-size:11px;color:var(--muted);margin-top:4px">מע"מ: ${fmt(invForm.inclVat-invForm.exclVat)}</div>`:""}
+      </div>
+      <div class="fgrid">
+        <div class="fg"><label class="fl">תאריך</label><input class="fi" type="date" value="${invForm.date}" onchange="invForm.date=this.value"></div>
+        <div></div>
+      </div>
+      ${qOpts}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span class="fl" style="margin:0">פירוט פריטים</span>
+        <button class="btn btn-ghost btn-sm" onclick="invForm.items.push({name:'',qty:1,unitPrice:0,total:0});refreshInvModal()">+ שורה</button>
+      </div>
+      <table class="itbl"><thead><tr><th>תיאור</th><th>כמות</th><th>מחיר יח׳ (כ.מע"מ)</th><th>ל.מע"מ</th><th>סה"כ</th><th></th></tr></thead><tbody>${itemRows}</tbody></table>
+      <div class="fg" style="margin-top:16px"><label class="fl">הערות</label><textarea class="fi" rows="2" onchange="invForm.notes=this.value" placeholder="הערה...">${invForm.notes}</textarea></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-gold" onclick="submitInvoice()" ${!invForm.supplierId||!invForm.inclVat?"disabled":""}>💾 שמור חשבונית</button>
+      <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+    </div>
+  </div>`;
+}
+function refreshInvModal() { showModal(buildInvModal()); }
+function setInclVat(v){ const n=parseFloat(v)||0; invForm.inclVat=v; invForm.exclVat=n?Math.round(n/1.18):""; document.getElementById("exclVatIn").value=invForm.exclVat; }
+function setExclVat(v){ const n=parseFloat(v)||0; invForm.exclVat=v; invForm.inclVat=n?Math.round(n*1.18):""; document.getElementById("inclVatIn").value=invForm.inclVat; }
+function updItem(i,k,v){ if(k==="qty"){invForm.items[i].qty=Number(v);invForm.items[i].total=Number(v)*invForm.items[i].unitPrice;}else{invForm.items[i].unitPrice=Number(v);invForm.items[i].total=invForm.items[i].qty*Number(v);}const t=invForm.items.reduce((s,x)=>s+x.total,0);invForm.inclVat=t||invForm.inclVat;invForm.exclVat=t?Math.round(t/1.18):"";document.getElementById("inclVatIn").value=invForm.inclVat;document.getElementById("exclVatIn").value=invForm.exclVat; }
+async function handleFile(file){ if(!file)return; const r=new FileReader(); r.onload=e=>{ imgData=e.target.result.split(",")[1]; imgPrev=e.target.result; refreshInvModal(); }; r.readAsDataURL(file); }
+function handleDrop(e){ e.preventDefault(); document.getElementById("uparea")?.classList.remove("drag"); handleFile(e.dataTransfer.files[0]); }
+async function scanInvoice(){ if(!imgData||!API_URL)return; const btn=document.getElementById("scanBtn"); const msg=document.getElementById("scanMsg"); btn.disabled=true; btn.textContent="⚙ סורק..."; msg.textContent=""; try{ const mt=imgPrev?.includes("png")?"image/png":"image/jpeg"; const r=await apiPost({action:"scan",imageData:imgData,mediaType:mt}); if(r.error){msg.textContent=r.error;return;} const ms=D.suppliers.find(s=>s.name.toLowerCase().includes((r.supplierName||"").toLowerCase().split(" ")[0])); if(ms)invForm.supplierId=ms.id; if(r.invoiceNumber)invForm.invoiceNo=r.invoiceNumber; if(r.invoiceDate)invForm.date=r.invoiceDate.split("/").reverse().join("-"); const iv=r.totalWithVat||Math.round((r.totalWithoutVat||0)*1.18)||0; const ev=r.totalWithoutVat||Math.round((r.totalWithVat||0)/1.18)||0; if(iv){invForm.inclVat=iv;invForm.exclVat=ev;} if(r.items?.length)invForm.items=r.items.map(it=>({name:it.name||"",qty:it.qty||1,unitPrice:it.unitPrice||0,total:it.total||0})); refreshInvModal(); }catch(e){msg.textContent="שגיאה בסריקה";}finally{btn&&(btn.disabled=false);btn&&(btn.textContent="🤖 סרוק עם AI");} }
+function submitInvoice(){ if(!invForm.supplierId||!invForm.inclVat)return; const sup=D.suppliers.find(s=>String(s.id)===String(invForm.supplierId)); const inv={id:uid(),supplierId:invForm.supplierId,supplierName:sup?.name||"",invoiceNo:invForm.invoiceNo,amount:Number(invForm.inclVat),date:invForm.date,status:"pending",items:invForm.items.filter(it=>it.name),quoteId:invForm.quoteId||null,notes:invForm.notes,alerts:[],createdAt:new Date().toISOString()}; inv.alerts=checkAnomalies(inv); if(inv.alerts.length)inv.status="review"; saveInvoice(inv); closeModal(); }
+
+// ─── Supplier Modal ───
+let supForm = {};
+function openSupModal(id) {
+  const existing = id ? D.suppliers.find(s=>String(s.id)===String(id)) : null;
+  supForm = existing ? JSON.parse(JSON.stringify(existing)) : {name:"",cat:"ניקיון",phone:"",email:"",catalog:[]};
+  showModal(buildSupModal());
+}
+function buildSupModal() {
+  const catOpts = CATS.map(c=>`<option${c===supForm.cat?" selected":""}>${c}</option>`).join("");
+  const catRows = supForm.catalog.map((c,i)=>`<tr>
+    <td><input value="${c.name}" onchange="supForm.catalog[${i}].name=this.value" placeholder="שם"></td>
+    <td><input value="${c.unit}" onchange="supForm.catalog[${i}].unit=this.value" style="width:80px"></td>
+    <td><input type="number" value="${c.price}" onchange="supForm.catalog[${i}].price=Number(this.value)" style="width:90px"></td>
+    <td style="color:var(--muted);font-size:11px">${c.price?fmt(noVat(c.price)):"—"}</td>
+    <td><span onclick="supForm.catalog.splice(${i},1);refreshSupModal()" style="cursor:pointer;color:var(--err);font-size:13px">✕</span></td>
+  </tr>`).join("");
+  return `<div class="modal">
+    <div class="m-hdr"><div class="m-ttl">${supForm.id?"עריכת ספק":"ספק חדש"}</div><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      <div class="fg"><label class="fl">שם ספק *</label><input class="fi" value="${supForm.name}" onchange="supForm.name=this.value" placeholder="שם הספק"></div>
+      <div class="fgrid">
+        <div class="fg"><label class="fl">קטגוריה</label><select class="fi" onchange="supForm.cat=this.value">${catOpts}</select></div>
+        <div class="fg"><label class="fl">טלפון</label><input class="fi" value="${supForm.phone}" onchange="supForm.phone=this.value" placeholder="050-0000000"></div>
+      </div>
+      <div class="fg"><label class="fl">אימייל</label><input class="fi" type="email" value="${supForm.email}" onchange="supForm.email=this.value"></div>
+      <hr class="divider">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold)">קטלוג מחירים מוסכמים</div>
+          <div style="font-size:10px;color:var(--muted)">כולל מע"מ</div>
+        </div>
+        <button class="btn btn-dark btn-sm" onclick="supForm.catalog.push({id:uid(),name:'',unit:'חודש',price:0});refreshSupModal()">+ הוסף שירות</button>
+      </div>
+      ${supForm.catalog.length===0?`<div style="font-size:12px;color:var(--muted)">טרם הוזנו מחירים מוסכמים</div>`:`
+      <table class="itbl"><thead><tr><th>שירות / מוצר</th><th>יחידת מידה</th><th>מחיר (כולל מע"מ)</th><th>ללא מע"מ</th><th></th></tr></thead><tbody>${catRows}</tbody></table>`}
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-gold" onclick="saveSupplier(supForm);closeModal()" ${!supForm.name?"disabled":""}>💾 שמור ספק</button>
+      <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+    </div>
+  </div>`;
+}
+function refreshSupModal() { showModal(buildSupModal()); }
+
+// ─── Quote Modal ───
+let quoForm = {};
+function openQuoteModal() {
+  quoForm = { supplierId:"", desc:"", inclVat:"", exclVat:"", date:dStr(NOW.getFullYear(),NOW.getMonth(),NOW.getDate()) };
+  showModal(buildQuoteModal());
+}
+function buildQuoteModal() {
+  const supOpts = D.suppliers.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
+  return `<div class="modal" style="max-width:500px">
+    <div class="m-hdr"><div class="m-ttl">הצעת מחיר חדשה</div><button class="btn btn-ghost btn-sm" onclick="closeModal()">✕</button></div>
+    <div class="m-body">
+      <div class="fg"><label class="fl">ספק *</label><select class="fi" onchange="quoForm.supplierId=this.value"><option value="">בחר ספק...</option>${supOpts}</select></div>
+      <div class="fg"><label class="fl">תיאור העבודה *</label><input class="fi" onchange="quoForm.desc=this.value" placeholder="לדוגמה: תיקון מזגן חדר 3"></div>
+      <div class="fg"><label class="fl">סכום הצעה</label>
+        <div class="vp">
+          <div><input class="fi" type="number" oninput="const n=parseFloat(this.value)||0;quoForm.inclVat=this.value;quoForm.exclVat=n?Math.round(n/1.18):'';document.getElementById('qEV').value=quoForm.exclVat" placeholder="0"><div class="vp-l">כולל מע"מ</div></div>
+          <div><input class="fi fi-net" type="number" id="qEV" oninput="const n=parseFloat(this.value)||0;quoForm.exclVat=this.value;quoForm.inclVat=n?Math.round(n*1.18):''" placeholder="0"><div class="vp-l">ללא מע"מ</div></div>
+        </div>
+      </div>
+      <div class="fg"><label class="fl">תאריך</label><input class="fi" type="date" value="${quoForm.date}" onchange="quoForm.date=this.value"></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn btn-gold" onclick="saveQuote({...quoForm,amount:Number(quoForm.inclVat),status:'open',invoiceId:null});closeModal()" ${!quoForm.supplierId||!quoForm.desc?"disabled":""}>💾 שמור</button>
+      <button class="btn btn-ghost" onclick="closeModal()">ביטול</button>
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════
+//  UI CONTROLS
+// ════════════════════════════════════════════════
+function setTab(t) {
+  UI.tab = t;
+  document.querySelectorAll(".tab").forEach(el => el.classList.toggle("on", el.dataset.tab===t));
+  render();
+}
+function toggleVat() {
+  UI.withVat = !UI.withVat;
+  document.getElementById("vatLabel").textContent = UI.withVat ? 'כולל מע"מ' : 'ללא מע"מ';
+  document.getElementById("vatPill").classList.toggle("active", UI.withVat);
+  render();
+}
+
+// ════════════════════════════════════════════════
+//  DEFAULT DATA (demo mode — no API needed)
+// ════════════════════════════════════════════════
+function getDefaultData() {
+  const sups = [
+    {id:"s01",name:"הוק",cat:"ארוחות ומזון",phone:"",email:"",catalog:[{id:"c1",name:"ארוחות בוקר",unit:"חודש",price:32900},{id:"c2",name:"כיבוד",unit:"חודש",price:9000}]},
+    {id:"s02",name:"אר.טו.אם קורפוריישן",cat:"ארוחות ומזון",phone:"",email:"",catalog:[{id:"c3",name:"ארוחות בוקר",unit:"חודש",price:29000}]},
+    {id:"s03",name:"קאמי",cat:"פרחים",phone:"",email:"",catalog:[{id:"c4",name:"פרחים מלון",unit:"חודש",price:2000}]},
+    {id:"s04",name:"צח",cat:"ניקיון",phone:"",email:"",catalog:[{id:"c5",name:"חומרי ניקוי",unit:"חודש",price:2000}]},
+    {id:"s05",name:"ח.ב קלין",cat:"כביסה",phone:"",email:"",catalog:[{id:"c6",name:"כביסה",unit:"חודש",price:11000}]},
+    {id:"s06",name:"עופר הגנן",cat:"גינון",phone:"",email:"",catalog:[{id:"c7",name:"גינון",unit:"חודש",price:1200}]},
+    {id:"s07",name:"טמפו",cat:"משקאות",phone:"",email:"",catalog:[{id:"c8",name:"משקאות",unit:"חודש",price:4000}]},
+    {id:"s08",name:"אספיריט",cat:"משקאות",phone:"",email:"",catalog:[{id:"c9",name:"פרוסקו",unit:"חודש",price:2500}]},
+    {id:"s09",name:"הוטליירס",cat:"תוכנה וטכנולוגיה",phone:"",email:"",catalog:[{id:"c10",name:"שירות חודשי",unit:"חודש",price:1292}]},
+    {id:"s10",name:"סימפל פרופיט",cat:"שיווק ופרסום",phone:"",email:"",catalog:[{id:"c11",name:"שיווק דיגיטלי",unit:"חודש",price:1800}]},
+    {id:"s11",name:"פרקומט",cat:"חניה ומעליות",phone:"",email:"",catalog:[{id:"c12",name:"שירות חניה",unit:"חודש",price:1500}]},
+    {id:"s12",name:"טונר פלוס",cat:"משרדיות ודפוס",phone:"",email:"",catalog:[{id:"c13",name:"מדפסות",unit:"חודש",price:590}]},
+  ];
+  const invs = [];
+  let idx=0;
+  const add=(sid,sname,ino,amt,mAgo,day,st,items,alerts=[])=>invs.push({id:`inv${idx++}`,supplierId:sid,supplierName:sname,invoiceNo:ino,amount:amt,date:dStr(NOW.getFullYear(),NOW.getMonth()-mAgo,day),status:st,items:items||[{name:"שירות",qty:1,unitPrice:amt,total:amt}],quoteId:null,notes:"",alerts,createdAt:""});
+  [[32900,5],[29900,4],[32900,3],[29900,2],[32900,1],[4192,0]].forEach(([a,m],i)=>add("s01","הוק",`HOK-${240+i}`,a,m,30,i<5?"paid":"pending",[{name:m===0?"כיבוד":"ארוחות בוקר",qty:1,unitPrice:a,total:a}]));
+  [[27438,4],[29338,3],[31000,2],[29000,1]].forEach(([a,m],i)=>add("s02","אר.טו.אם קורפוריישן",`ARM-${100+i}`,a,m,28,i<3?"paid":"pending"));
+  [[2005,5],[2090,4],[1940,3],[2425,2],[2000,1],[1850,0]].forEach(([a,m],i)=>add("s03","קאמי",`KM-${300+i}`,a,m,22,i<5?"paid":"pending"));
+  [[1818,5],[1290,4],[2801,3],[1422,2],[1173,1],[3200,0]].forEach(([a,m],i)=>add("s04","צח",`ZCH-${400+i}`,a,m,14,i<5?"paid":(a>2500?"review":"pending"),[],i===5&&a>2500?[{type:"high",msg:"גבוה ב-65% מהממוצע (₪1,700)"}]:[]));
+  [[9756,5],[11000,4],[12500,3],[16879,2],[10500,1],[11000,0]].forEach(([a,m],i)=>add("s05","ח.ב קלין",`CBK-${200+i}`,a,m,30,i<5?"paid":"pending"));
+  [[3245,4],[4000,3],[5000,2],[3500,1],[3800,0]].forEach(([a,m],i)=>add("s07","טמפו",`TMP-${120+i}`,a,m,20,i<4?"paid":"pending"));
+  [[1287,5],[1287,4],[1287,3],[1287,2],[1298,1],[1298,0]].forEach(([a,m],i)=>add("s09","הוטליירס",`HTL-${60+i}`,a,m,30,i<5?"paid":"pending"));
+  [[1521,4],[1534,3],[2714,2],[1800,1]].forEach(([a,m],i)=>add("s10","סימפל פרופיט",`SMP-${70+i}`,a,m,28,i<3?"paid":(a>2500?"review":"pending"),[],i===2?[{type:"high",msg:"גבוה ב-68% מהממוצע (₪1,619)"}]:[]));
+  [[585,5],[585,4],[585,3],[585,2],[590,1],[590,0]].forEach(([a,m],i)=>add("s12","טונר פלוס",`TNR-${80+i}`,a,m,1,i<5?"paid":"pending"));
+  return { invoices: invs.map(normalizeInvoice), suppliers: sups.map(normalizeSupplier), quotes: [] };
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+const hd = document.getElementById("hdrDate");
+if (hd) hd.textContent = `${["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"][NOW.getMonth()]} ${NOW.getFullYear()}`;
+
+loadAll();
+</script>
+</body>
+</html>
