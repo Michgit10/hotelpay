@@ -204,6 +204,7 @@ textarea.fi{resize:vertical;}
       <div class="sw"><input type="checkbox" id="vatCb" checked onchange="toggleVat()"><span class="sw-t"></span></div>
     </label>
     <button class="btn" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:11px;padding:4px 10px" onclick="loadAll()" id="refreshBtn">↻ רענן</button>
+    <button class="btn" style="background:rgba(255,100,100,.2);color:#fca;border:1px solid rgba(255,100,100,.3);font-size:11px;padding:4px 10px" onclick="debugApi()">🔧 בדוק API</button>
     <div class="hdr-date" id="hdrDate"></div>
   </div>
 </header>
@@ -1000,6 +1001,24 @@ function getDefaultData() {
 // ════════════════════════════════════════════════
 const hd = document.getElementById("hdrDate");
 if (hd) hd.textContent = `${["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"][NOW.getMonth()]} ${NOW.getFullYear()}`;
+
+async function debugApi() {
+  try {
+    const url = API_URL + "?action=readAll";
+    const res = await fetch(url, { redirect: "follow" });
+    const text = await res.text();
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { parsed = null; }
+    const inv = parsed?.invoices?.length ?? "שגיאה";
+    const sup = parsed?.suppliers?.length ?? "שגיאה";
+    const msg = parsed
+      ? `✅ תשובה תקינה\nחשבוניות: ${inv}\nספקים: ${sup}\n\n5 שורות ראשונות:\n${JSON.stringify(parsed.invoices?.slice(0,2), null, 2)}`
+      : `❌ תשובה לא תקינה:\n${text.slice(0, 500)}`;
+    alert(msg);
+  } catch(e) {
+    alert("❌ שגיאת רשת / CORS:\n" + e.message);
+  }
+}
 
 // Auto-refresh every 30 seconds to pick up new Drive invoices
 setInterval(() => { if (!UI.loading) loadAll(); }, 30000);
