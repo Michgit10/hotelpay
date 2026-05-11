@@ -142,7 +142,7 @@ function scanWithClaude(imageData, mediaType) {
         },
         {
           type: "text",
-          text: "חלץ נתוני חשבונית מהתמונה. החזר JSON בלבד עם השדות: supplierName, invoiceNumber, invoiceDate (DD/MM/YYYY), totalWithVat (מספר), totalWithoutVat (מספר), items (מערך של {name, qty, unitPrice, total}). אל תוסיף טקסט נוסף מחוץ ל-JSON."
+          text: "Extract invoice data from this image. Return ONLY a valid JSON object — no markdown, no explanation.\n\n{\"supplierName\":\"The company who ISSUED this invoice (top-left, before Bill To). Never the invoice number.\",\"invoiceNumber\":\"Invoice ID\",\"invoiceDate\":\"DD/MM/YYYY\",\"totalWithVat\":\"final total as plain number\",\"totalWithoutVat\":\"subtotal before tax as plain number\",\"vatRate\":\"actual VAT % as plain number e.g. 21\",\"currency\":\"USD/EUR/ILS etc\",\"items\":[{\"name\":\"\",\"qty\":1,\"unitPrice\":0,\"total\":0}]}\n\nRules: supplierName=vendor/seller NOT customer. All amounts=plain numbers no symbols. Extract ACTUAL VAT rate from invoice. Return ONLY JSON."
         }
       ]
     }]
@@ -252,9 +252,12 @@ function processInvoiceFile(file, apiKey) {
       if (!scanned.error) {
         if (scanned.supplierName)  invoice.supplierName = scanned.supplierName;
         if (scanned.invoiceNumber) invoice.invoiceNo    = scanned.invoiceNumber;
-        if (scanned.totalWithVat)  invoice.amount       = Number(scanned.totalWithVat);
+        if (scanned.totalWithVat)  invoice.amount       = Number(String(scanned.totalWithVat).replace(/[^0-9.]/g,""));
+        if (scanned.totalWithoutVat) invoice.amountNet  = Number(String(scanned.totalWithoutVat).replace(/[^0-9.]/g,""));
         if (scanned.invoiceDate)   invoice.date         = scanned.invoiceDate.split("/").reverse().join("-");
         if (scanned.items)         invoice.items        = JSON.stringify(scanned.items);
+        if (scanned.vatRate)       invoice.vatRate      = Number(scanned.vatRate);
+        if (scanned.currency)      invoice.currency     = scanned.currency;
         invoice.status = "review";
         Logger.log("סריקת AI הצליחה: " + invoice.supplierName + " · ₪" + invoice.amount);
       } else {

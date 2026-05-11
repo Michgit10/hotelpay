@@ -274,10 +274,11 @@ function badge(status) {
   const s = STATUS[status] || STATUS.pending;
   return `<span class="badge" style="background:${s.bg};color:${s.c};border-color:${s.c}30">${s.e} ${s.l}</span>`;
 }
-function amtHtml(amount) {
+function amtHtml(amount, currency) {
   const main = disp(amount);
   const sub = UI.withVat ? `${fmt(noVat(amount))} ללא מע"מ` : `${fmt(amount)} כולל מע"מ`;
-  return `<div class="amt-blk"><div class="amt-main">${main}</div><div class="amt-sub">${sub}</div></div>`;
+  const cur = currency && currency !== "ILS" ? `<span style="font-size:10px;color:var(--blue);font-weight:700;margin-right:4px">${currency}</span>` : "";
+  return `<div class="amt-blk">${cur}<div class="amt-main">${main}</div><div class="amt-sub">${sub}</div></div>`;
 }
 
 function checkAnomalies(inv) {
@@ -822,6 +823,18 @@ function openDetail(id) {
       </tbody>
     </table>` : "";
 
+  const actualVat = inv.vatRate ? Number(inv.vatRate) : 18;
+  const vatAmt2   = inv.vatRate
+    ? Math.round(Number(inv.amount) - Number(inv.amount) / (1 + actualVat/100))
+    : vatAmt;
+  const netAmt    = inv.amountNet ? Number(inv.amountNet) : noVat(Number(inv.amount));
+
+  const rescanBtn = inv.driveFileId && Number(inv.amount) === 0
+    ? `<label class="btn btn-ghost btn-sm" style="cursor:pointer" title="העלה את הקובץ מחדש לסריקה">
+        🤖 סרוק מחדש
+        <input type="file" accept="image/*,.pdf" style="display:none" onchange="rescanExisting('${id}',this.files[0])">
+       </label>` : "";
+
   const btns = (inv.status==="pending"||inv.status==="review")
     ? `<button class="btn btn-ok" onclick="updateInvoice('${id}',{status:'approved'});closeModal()">✅ אשר תשלום</button>
        <button class="btn btn-bad" onclick="updateInvoice('${id}',{status:'rejected'});closeModal()">❌ דחה</button>`
@@ -853,11 +866,11 @@ function openDetail(id) {
           ${inv.driveFileUrl?`<div class="drow"><span class="dkey">קובץ מקור</span><span class="dval">${driveThumb}</span></div>`:""}
         </div>
         <div style="background:var(--ink3);border:1px solid var(--border);border-radius:8px;padding:14px">
-          <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;margin-bottom:8px">פירוט מע"מ</div>
-          <div class="drow"><span class="dkey">ללא מע"מ</span><span class="dval">${fmt(noVat(inv.amount))}</span></div>
-          <div class="drow"><span class="dkey">מע"מ (18%)</span><span class="dval" style="color:var(--muted)">${fmt(vatAmt)}</span></div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;margin-bottom:8px">פירוט מע"מ ${inv.currency&&inv.currency!=="ILS"?`· <span style="color:var(--blue);font-weight:700">${inv.currency}</span>`:""}</div>
+          <div class="drow"><span class="dkey">ללא מע"מ</span><span class="dval">${fmt(netAmt)}</span></div>
+          <div class="drow"><span class="dkey">מע"מ (${actualVat}%)</span><span class="dval" style="color:var(--muted)">${fmt(vatAmt2)}</span></div>
           <hr class="divider">
-          <div class="drow"><span class="dkey" style="font-weight:700;color:var(--cream)">כולל מע"מ</span><span class="dval" style="font-family:'Cormorant Garamond';font-size:22px;color:var(--gold)">${fmt(inv.amount)}</span></div>
+          <div class="drow"><span class="dkey" style="font-weight:700">כולל מע"מ</span><span class="dval" style="font-size:20px;font-weight:800;color:var(--text)">${fmt(inv.amount)}</span></div>
         </div>
       </div>
       ${itemsHtml}
@@ -868,11 +881,39 @@ function openDetail(id) {
     </div>
     <div class="m-foot">
       ${btns}
-      <button class="btn btn-dark" onclick="saveDetailNotes('${id}')">💾 שמור הערות</button>
+      ${rescanBtn}
+      <button class="btn btn-ghost btn-sm" onclick="saveDetailNotes('${id}')">💾 שמור הערות</button>
       <button class="btn btn-ghost" style="margin-right:auto" onclick="closeModal()">סגור</button>
     </div>
   </div>`);
 }
+async function rescanExisting(id, file) {
+  if (!file) return;
+  toast("⚙ סורק...", 8000);
+  const r = new FileReader();
+  r.onload = async e => {
+    const imageData = e.target.result.split(",")[1];
+    const mediaType = file.type || "image/jpeg";
+    const res = await apiPost({ action:"scan", imageData, mediaType });
+    if (res.error) { toast("שגיאה: " + res.error); return; }
+    const updates = {};
+    if (res.supplierName)  updates.supplierName = res.supplierName;
+    if (res.invoiceNumber) updates.invoiceNo    = res.invoiceNumber;
+    if (res.totalWithVat)  updates.amount       = Number(String(res.totalWithVat).replace(/[^0-9.]/g,""));
+    if (res.totalWithoutVat) updates.amountNet  = Number(String(res.totalWithoutVat).replace(/[^0-9.]/g,""));
+    if (res.invoiceDate)   updates.date         = res.invoiceDate.split("/").reverse().join("-");
+    if (res.items)         updates.items        = JSON.stringify(res.items);
+    if (res.vatRate)       updates.vatRate      = Number(res.vatRate);
+    if (res.currency)      updates.currency     = res.currency;
+    updates.status = "review";
+    await updateInvoice(id, updates);
+    closeModal();
+    openDetail(id);
+    toast("✓ סריקה הושלמה");
+  };
+  r.readAsDataURL(file);
+}
+
 function saveDetailNotes(id) {
   const notes = document.getElementById("detailNotes")?.value || "";
   updateInvoice(id, {notes});

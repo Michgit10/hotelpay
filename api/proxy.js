@@ -182,7 +182,26 @@ async function scanInvoice(imageData, mediaType) {
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageData } },
-          { type: "text", text: "חלץ נתוני חשבונית מהתמונה. החזר JSON בלבד עם השדות: supplierName, invoiceNumber, invoiceDate (DD/MM/YYYY), totalWithVat (מספר), totalWithoutVat (מספר), items (מערך של {name, qty, unitPrice, total}). אל תוסיף טקסט נוסף מחוץ ל-JSON." }
+          { type: "text", text: `Extract invoice data from this image. Return ONLY a valid JSON object — no markdown, no explanation, no extra text.
+
+JSON format:
+{
+  "supplierName": "The company/vendor who ISSUED this invoice. Found at top-left with their address BEFORE the 'Bill to' section. Never use the invoice number here.",
+  "invoiceNumber": "Invoice number or ID (e.g. CX4THWMG-0001)",
+  "invoiceDate": "Issue date in DD/MM/YYYY format",
+  "totalWithVat": <final total amount due as a plain number, NO currency symbols>,
+  "totalWithoutVat": <subtotal before any tax as a plain number>,
+  "vatRate": <VAT/tax percentage as a plain number, e.g. 21 for 21%. If not found use 0>,
+  "currency": "3-letter ISO code: USD, EUR, ILS, GBP etc.",
+  "items": [{"name": "item description", "qty": 1, "unitPrice": 100.00, "total": 100.00}]
+}
+
+Critical rules:
+- supplierName = who SENT the invoice (the vendor/seller), NOT who received it
+- All monetary values = plain numbers only, no $, €, ₪ symbols
+- Extract the ACTUAL VAT rate written in the invoice, do not assume 18%
+- Return ONLY the JSON object` }
+
         ],
       }],
     }),
