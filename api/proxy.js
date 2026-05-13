@@ -168,6 +168,12 @@ async function updateRow(sheetName, id, updates) {
 
 async function scanInvoice(imageData, mediaType) {
   if (!CLAUDE_API_KEY) return { error: "CLAUDE_API_KEY env var not set in Vercel" };
+
+  const isPdf = (mediaType || "").toLowerCase().includes("pdf");
+  const fileBlock = isPdf
+    ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: imageData } }
+    : { type: "image",    source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageData } };
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -181,7 +187,7 @@ async function scanInvoice(imageData, mediaType) {
       messages: [{
         role: "user",
         content: [
-          { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageData } },
+          fileBlock,
           { type: "text", text: `Extract invoice data from this image. Return ONLY a valid JSON object — no markdown, no explanation, no extra text.
 
 JSON format:
