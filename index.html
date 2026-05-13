@@ -270,7 +270,15 @@ const uid = () => "_" + Math.random().toString(36).slice(2, 10);
 const dStr = (y,m,d) => { const nm=((m%12)+12)%12; const ny=y+Math.floor(m/12); return `${ny}-${String(nm+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; };
 const toast = (msg, dur=2500) => { const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), dur); };
 
-function badge(status) {
+function badge(status, alerts) {
+  const isPendingLike = status === "pending" || status === "review";
+  const needsReview   = status === "review" || (isPendingLike && alerts && alerts.length > 0);
+  if (isPendingLike) {
+    if (needsReview) {
+      return `<span class="badge" style="background:var(--warn-l);color:var(--warn);border-color:var(--warn)3a">⚠️ ממתין · דורש בדיקה</span>`;
+    }
+    return `<span class="badge" style="background:${STATUS.pending.bg};color:${STATUS.pending.c};border-color:${STATUS.pending.c}30">⏳ ממתין לאישור</span>`;
+  }
   const s = STATUS[status] || STATUS.pending;
   return `<span class="badge" style="background:${s.bg};color:${s.c};border-color:${s.c}30">${s.e} ${s.l}</span>`;
 }
@@ -446,7 +454,7 @@ function render() {
 function renderDashboard() {
   const cur = D.invoices.filter(x=>{ const d=new Date(x.date); return d.getMonth()===NOW.getMonth()&&d.getFullYear()===NOW.getFullYear(); });
   const tot = cur.reduce((s,x)=>s+Number(x.amount),0);
-  const rev = cur.filter(x=>x.status==="review");
+  const rev = cur.filter(x=> x.status==="review" || (x.status==="pending" && (x.alerts||[]).length>0));
   const appr = cur.filter(x=>["approved","paid"].includes(x.status)).reduce((s,x)=>s+Number(x.amount),0);
   const paid = cur.filter(x=>x.status==="paid").reduce((s,x)=>s+Number(x.amount),0);
   const vn = UI.withVat?'כולל מע"מ':'ללא מע"מ';
@@ -454,16 +462,18 @@ function renderDashboard() {
 
   const rows = sorted.map(inv => {
     const alertsHtml = (inv.alerts||[]).map(al=>`<div class="al ${al.type}">${al.msg}</div>`).join("");
-    const acts = inv.status==="pending"||inv.status==="review"
+    const isWaiting = inv.status==="pending"||inv.status==="review";
+    const acts = isWaiting
       ? `<button class="btn btn-ok btn-sm" onclick="quickApprove('${inv.id}');event.stopPropagation()">✅ אשר</button>
          <button class="btn btn-bad btn-sm" onclick="quickReject('${inv.id}');event.stopPropagation()">❌</button>`
       : inv.status==="approved"
       ? `<button class="btn btn-pay btn-sm" onclick="quickPay('${inv.id}');event.stopPropagation()">💰 שולם</button>` : "";
-    return `<tr class="${inv.status==="review"?"rev":""}" onclick="openDetail('${inv.id}')">
+    const needsReview = inv.status==="review"||(inv.status==="pending"&&(inv.alerts||[]).length>0);
+    return `<tr class="${needsReview?"rev":""}" onclick="openDetail('${inv.id}')">
       <td><div style="font-weight:700">${inv.supplierName}</div><div style="font-size:11px;color:var(--muted)">${inv.date}</div></td>
       <td style="color:var(--muted);font-size:12px">${inv.invoiceNo||"—"}</td>
       <td>${amtHtml(inv.amount)}</td>
-      <td>${badge(inv.status)}</td>
+      <td>${badge(inv.status, inv.alerts)}</td>
       <td style="max-width:200px">${alertsHtml}</td>
       <td><div style="display:flex;gap:4px;flex-wrap:wrap">${acts}</div></td>
     </tr>`;
@@ -538,14 +548,17 @@ function renderInvoices() {
   const fSup = UI.filterSup || "all";
   const q = UI.search || "";
   const fil = D.invoices.filter(x=>{
-    if(fs!=="all"&&x.status!==fs) return false;
+    if(fs!=="all") {
+      if(fs==="pending" && (x.status==="pending"||x.status==="review")) { /* OK */ }
+      else if(x.status!==fs) return false;
+    }
     if(fSup!=="all"&&String(x.supplierId)!==fSup) return false;
     if(q&&!(x.supplierName||"").includes(q)&&!(x.invoiceNo||"").includes(q)) return false;
     return true;
   }).sort((a,b)=>new Date(b.date)-new Date(a.date));
 
-  const chips = ["all","pending","review","approved","paid","rejected"].map(s=>
-    `<span class="fchip${fs===s?" on":""}" onclick="UI.filterStatus='${s}';render()">${s==="all"?"הכל":STATUS[s]?.l}</span>`
+  const chips = ["all","pending","approved","paid","rejected"].map(s=>
+    `<span class="fchip${(fs===s||(s==="pending"&&fs==="review"))?" on":""}" onclick="UI.filterStatus='${s}';render()">${s==="all"?"הכל":s==="pending"?"ממתין לאישור":STATUS[s]?.l}</span>`
   ).join("");
   const supOpts = D.suppliers.map(s=>`<option value="${s.id}"${fSup===s.id?" selected":""}>${s.name}</option>`).join("");
   const rows = fil.map(inv=>{
@@ -558,7 +571,7 @@ function renderInvoices() {
       <td style="color:var(--muted);font-size:12px">${inv.invoiceNo||"—"}</td>
       <td style="font-size:12px;color:var(--muted)">${inv.date}</td>
       <td>${amtHtml(inv.amount)}</td>
-      <td>${badge(inv.status)}</td>
+      <td>${badge(inv.status, inv.alerts)}</td>
       <td>${(inv.alerts||[]).length>0?`<span style="font-size:11px;color:var(--warn);font-weight:700">⚠️ ${inv.alerts.length}</span>`:""}</td>
       <td><div style="display:flex;gap:4px">${acts}</div></td>
     </tr>`;
@@ -829,6 +842,39 @@ function openDetail(id) {
     : vatAmt;
   const netAmt    = inv.amountNet ? Number(inv.amountNet) : noVat(Number(inv.amount));
 
+  // ── Supplier payment history bar chart ──────────
+  const supHistory = inv.supplierId
+    ? D.invoices
+        .filter(x => String(x.supplierId)===String(inv.supplierId) && x.status!=="rejected")
+        .sort((a,b) => new Date(a.date)-new Date(b.date))
+        .slice(-6)
+    : [];
+  let histChartHtml = "";
+  if (supHistory.length >= 2) {
+    const maxAmt = Math.max(...supHistory.map(x=>Number(x.amount)));
+    const CHART_H = 60;
+    const bars = supHistory.map(x => {
+      const amt  = Number(x.amount);
+      const h    = maxAmt>0 ? Math.max(3, Math.round((amt/maxAmt)*CHART_H)) : 3;
+      const d    = new Date(x.date);
+      const lbl  = MO[d.getMonth()].slice(0,3)+"'"+ String(d.getFullYear()).slice(2);
+      const amtLbl = amt>=1000 ? "₪"+(amt/1000).toFixed(1).replace(/\.0$/,"")+"K" : "₪"+Math.round(amt);
+      const cur  = String(x.id)===String(inv.id);
+      const bg   = cur ? "var(--blue)" : "var(--navy)";
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0">
+        <div style="font-size:9px;color:${cur?"var(--blue)":"var(--muted)"};font-weight:${cur?700:400};white-space:nowrap">${amtLbl}</div>
+        <div style="flex:1;width:85%;max-width:36px;display:flex;align-items:flex-end">
+          <div style="width:100%;background:${bg};border-radius:3px 3px 0 0;height:${h}px;opacity:${cur?1:0.65}"></div>
+        </div>
+        <div style="font-size:9px;color:${cur?"var(--blue)":"var(--muted)"};font-weight:${cur?700:400};white-space:nowrap">${lbl}</div>
+      </div>`;
+    }).join("");
+    histChartHtml = `<div style="margin-top:14px;padding:12px 14px;background:#f9fafb;border-radius:8px;border:1px solid var(--border)">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin-bottom:10px">תשלומים אחרונים — ${inv.supplierName}</div>
+      <div style="display:flex;gap:4px;align-items:flex-end;height:${CHART_H+2}px">${bars}</div>
+    </div>`;
+  }
+
   const rescanBtn = inv.driveFileId
     ? `<button class="btn btn-ghost btn-sm" onclick="rescanFromDrive('${id}','${inv.driveFileId}')" title="סרוק מחדש מקובץ ב-Drive">🤖 סרוק מחדש מ-Drive</button>`
     : "";
@@ -859,7 +905,7 @@ function openDetail(id) {
           <div class="drow"><span class="dkey">ספק</span><span class="dval">${inv.supplierName}</span></div>
           <div class="drow"><span class="dkey">מס׳ חשבונית</span><span class="dval">${inv.invoiceNo||"—"}</span></div>
           <div class="drow"><span class="dkey">תאריך</span><span class="dval">${inv.date}</span></div>
-          <div class="drow"><span class="dkey">סטטוס</span><span class="dval">${badge(inv.status)}</span></div>
+          <div class="drow"><span class="dkey">סטטוס</span><span class="dval">${badge(inv.status, inv.alerts)}</span></div>
           ${quote?`<div class="drow"><span class="dkey">הצעת מחיר</span><span class="dval">${fmt(quote.amount)}</span></div>`:""}
           ${inv.driveFileUrl?`<div class="drow"><span class="dkey">קובץ מקור</span><span class="dval">${driveThumb}</span></div>`:""}
         </div>
@@ -871,6 +917,7 @@ function openDetail(id) {
           <div class="drow"><span class="dkey" style="font-weight:700">כולל מע"מ</span><span class="dval" style="font-size:20px;font-weight:800;color:var(--text)">${fmt(inv.amount)}</span></div>
         </div>
       </div>
+      ${histChartHtml}
       ${itemsHtml}
       <div class="fg" style="margin-top:18px">
         <label class="fl">הערות</label>
@@ -1012,7 +1059,7 @@ function updItem(i,k,v){ if(k==="qty"){invForm.items[i].qty=Number(v);invForm.it
 async function handleFile(file){ if(!file)return; const r=new FileReader(); r.onload=e=>{ imgData=e.target.result.split(",")[1]; imgPrev=e.target.result; refreshInvModal(); }; r.readAsDataURL(file); }
 function handleDrop(e){ e.preventDefault(); document.getElementById("uparea")?.classList.remove("drag"); handleFile(e.dataTransfer.files[0]); }
 async function scanInvoice(){ if(!imgData||!API_URL)return; const btn=document.getElementById("scanBtn"); const msg=document.getElementById("scanMsg"); btn.disabled=true; btn.textContent="⚙ סורק..."; msg.textContent=""; try{ const mt=imgPrev?.includes("data:image/png")?"image/png":imgPrev?.includes("data:application/pdf")?"application/pdf":"image/jpeg"; const r=await apiPost({action:"scan",imageData:imgData,mediaType:mt}); if(r.error){msg.textContent="שגיאה: "+r.error;return;} const ms=D.suppliers.find(s=>s.name.toLowerCase().includes((r.supplierName||"").toLowerCase().split(" ")[0])); if(ms)invForm.supplierId=ms.id; if(r.invoiceNumber)invForm.invoiceNo=r.invoiceNumber; if(r.invoiceDate)invForm.date=r.invoiceDate.split("/").reverse().join("-"); const iv=r.totalWithVat||Math.round((r.totalWithoutVat||0)*1.18)||0; const ev=r.totalWithoutVat||Math.round((r.totalWithVat||0)/1.18)||0; if(iv){invForm.inclVat=iv;invForm.exclVat=ev;} if(r.items?.length)invForm.items=r.items.map(it=>({name:it.name||"",qty:it.qty||1,unitPrice:it.unitPrice||0,total:it.total||0})); msg.textContent="✓ סריקה הושלמה"; refreshInvModal(); }catch(e){msg.textContent="שגיאה בסריקה: "+e.message; console.error("scan error:",e);}finally{btn&&(btn.disabled=false);btn&&(btn.textContent="🤖 סרוק עם AI");} }
-function submitInvoice(){ if(!invForm.supplierId||!invForm.inclVat)return; const sup=D.suppliers.find(s=>String(s.id)===String(invForm.supplierId)); const inv={id:uid(),supplierId:invForm.supplierId,supplierName:sup?.name||"",invoiceNo:invForm.invoiceNo,amount:Number(invForm.inclVat),date:invForm.date,status:"pending",items:invForm.items.filter(it=>it.name),quoteId:invForm.quoteId||null,notes:invForm.notes,alerts:[],createdAt:new Date().toISOString()}; inv.alerts=checkAnomalies(inv); if(inv.alerts.length)inv.status="review"; saveInvoice(inv); closeModal(); }
+function submitInvoice(){ if(!invForm.supplierId||!invForm.inclVat)return; const sup=D.suppliers.find(s=>String(s.id)===String(invForm.supplierId)); const inv={id:uid(),supplierId:invForm.supplierId,supplierName:sup?.name||"",invoiceNo:invForm.invoiceNo,amount:Number(invForm.inclVat),date:invForm.date,status:"pending",items:invForm.items.filter(it=>it.name),quoteId:invForm.quoteId||null,notes:invForm.notes,alerts:[],createdAt:new Date().toISOString()}; inv.alerts=checkAnomalies(inv); saveInvoice(inv); closeModal(); }
 
 // ─── Supplier Modal ───
 let supForm = {};
