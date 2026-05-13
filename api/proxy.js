@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const SPREADSHEET_ID  = process.env.SPREADSHEET_ID;
 const CLAUDE_API_KEY  = process.env.CLAUDE_API_KEY;
 const SHEETS_BASE     = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}`;
+const DRIVE_BASE      = "https://www.googleapis.com/drive/v3";
 
 const SHEET_INVOICES  = "חשבוניות";
 const SHEET_SUPPLIERS = "ספקים";
@@ -22,7 +23,7 @@ async function getToken() {
   const hdr  = enc({ alg: "RS256", typ: "JWT" });
   const pay  = enc({
     iss: creds.client_email,
-    scope: "https://www.googleapis.com/auth/spreadsheets",
+    scope: "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly",
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
@@ -96,6 +97,34 @@ function serialize(v) {
   if (v === null || v === undefined) return "";
   if (typeof v === "object") return JSON.stringify(v);
   return String(v);
+}
+
+// ─── Drive helpers ────────────────────────────────
+async function driveGetFile(fileId) {
+  const token = await getToken();
+  // Get file metadata (mimeType)
+  const meta = await fetch(`${DRIVE_BASE}/files/${fileId}?fields=id,name,mimeType`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const info = await meta.json();
+  if (info.error) throw new Error("Drive metadata error: " + JSON.stringify(info.error));
+
+  // Download file bytes
+  const dl = await fetch(`${DRIVE_BASE}/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!dl.ok) throw new Error("Drive download error: " + dl.status);
+  const buf = await dl.arrayBuffer();
+  const b64 = Buffer.from(buf).toString("base64");
+  return { mimeType: info.mimeType, name: info.name, base64: b64 };
+}
+
+async function rescanDrive(fileId) {
+  const file = await driveGetFile(fileId);
+  const mt = file.mimeType;
+  const supported = ["image/jpeg","image/jpg","image/png","image/gif","image/webp","application/pdf"];
+  if (!supported.includes(mt)) return { error: "Unsupported file type: " + mt };
+  return scanInvoice(file.base64, mt);
 }
 
 // ─── Actions ─────────────────────────────────────
@@ -240,9 +269,10 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const action = body.action;
-      if (action === "add")    return res.json(await addRow(body.sheet, body.data));
-      if (action === "update") return res.json(await updateRow(body.sheet, body.id, body.updates));
-      if (action === "scan")   return res.json(await scanInvoice(body.imageData, body.mediaType));
+      if (action === "add")          return res.json(await addRow(body.sheet, body.data));
+      if (action === "update")       return res.json(await updateRow(body.sheet, body.id, body.updates));
+      if (action === "scan")         return res.json(await scanInvoice(body.imageData, body.mediaType));
+      if (action === "rescan_drive") return res.json(await rescanDrive(body.fileId));
       return res.json({ error: "Unknown POST action: " + action });
     }
 

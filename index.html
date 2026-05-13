@@ -829,11 +829,9 @@ function openDetail(id) {
     : vatAmt;
   const netAmt    = inv.amountNet ? Number(inv.amountNet) : noVat(Number(inv.amount));
 
-  const rescanBtn = inv.driveFileId && Number(inv.amount) === 0
-    ? `<label class="btn btn-ghost btn-sm" style="cursor:pointer" title="העלה את הקובץ מחדש לסריקה">
-        🤖 סרוק מחדש
-        <input type="file" accept="image/*,.pdf" style="display:none" onchange="rescanExisting('${id}',this.files[0])">
-       </label>` : "";
+  const rescanBtn = inv.driveFileId
+    ? `<button class="btn btn-ghost btn-sm" onclick="rescanFromDrive('${id}','${inv.driveFileId}')" title="סרוק מחדש מקובץ ב-Drive">🤖 סרוק מחדש מ-Drive</button>`
+    : "";
 
   const btns = (inv.status==="pending"||inv.status==="review")
     ? `<button class="btn btn-ok" onclick="updateInvoice('${id}',{status:'approved'});closeModal()">✅ אשר תשלום</button>
@@ -912,6 +910,30 @@ async function rescanExisting(id, file) {
     toast("✓ סריקה הושלמה");
   };
   r.readAsDataURL(file);
+}
+
+async function rescanFromDrive(id, fileId) {
+  toast("⚙ מוריד ממחדש וסורק...", 12000);
+  try {
+    const res = await apiPost({ action: "rescan_drive", fileId });
+    if (res.error) { toast("שגיאה: " + res.error, 6000); return; }
+    const updates = {};
+    if (res.supplierName)    updates.supplierName = res.supplierName;
+    if (res.invoiceNumber)   updates.invoiceNo    = res.invoiceNumber;
+    if (res.totalWithVat)    updates.amount       = Number(String(res.totalWithVat).replace(/[^0-9.]/g,""));
+    if (res.totalWithoutVat) updates.amountNet    = Number(String(res.totalWithoutVat).replace(/[^0-9.]/g,""));
+    if (res.invoiceDate)     updates.date         = res.invoiceDate.split("/").reverse().join("-");
+    if (res.items)           updates.items        = JSON.stringify(res.items);
+    if (res.vatRate)         updates.vatRate      = Number(res.vatRate);
+    if (res.currency)        updates.currency     = res.currency;
+    updates.status = "review";
+    await updateInvoice(id, updates);
+    closeModal();
+    openDetail(id);
+    toast("✓ סריקה מחדש הושלמה");
+  } catch (e) {
+    toast("שגיאה: " + e.message, 6000);
+  }
 }
 
 function saveDetailNotes(id) {
